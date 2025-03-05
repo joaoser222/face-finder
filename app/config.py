@@ -1,6 +1,10 @@
 from tortoise import Tortoise
+from dotenv import load_dotenv
+import os
 
-DATABASE_URL = "sqlite://db.sqlite3"
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 async def init_db():
     await Tortoise.init(
