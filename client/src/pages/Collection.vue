@@ -15,7 +15,8 @@ const meta = {
   subtitle: 'Gerencie suas coleções de fotos',
   description: 'Coleções são grupos de fotos que você deve criar para utilizar o algoritmo de pesquisa',
   singular: 'Coleção',
-  plural: 'Coleções'
+  plural: 'Coleções',
+  image: new URL('@/assets/collections.svg', import.meta.url).href
 }
 
 const formFields = [

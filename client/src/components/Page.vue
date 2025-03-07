@@ -48,10 +48,13 @@
         </v-list>
 
         <!-- Estado vazio -->
-        <v-empty-state 
-          image="https://cdn.vuetifyjs.com/docs/images/components/v-empty-state/teamwork.png" 
-          v-else
-        >
+        <v-empty-state v-else>
+          <template v-slot:media>
+            <div class="d-flex flex-column justify-center align-center">
+              <v-img :src="meta.image" width="350px" height="auto"></v-img>
+            </div>
+          </template>
+
           <template v-slot:title>
             <div class="text-h6 mt-8">
               {{ meta.subtitle }}
@@ -131,7 +134,7 @@ const props = defineProps({
     type: Object,
     required: true,
     validator: (prop) => {
-      return ['title', 'subtitle', 'description', 'singular', 'plural'].every(key => key in prop)
+      return ['title', 'subtitle', 'description', 'singular', 'plural','image'].every(key => key in prop)
     }
   },
   endpoint: {

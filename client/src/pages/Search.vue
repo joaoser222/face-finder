@@ -15,7 +15,8 @@ const meta = {
   subtitle: 'Gerencie pesquisas de faces',
   description: 'Pesquisas são consultas em que você utiliza um rosto como referência para encontrar imagens que contenham essa mesma face em diferentes coleções.',
   singular: 'Pesquisa',
-  plural: 'Pesquisas'
+  plural: 'Pesquisas',
+  image: new URL('@/assets/face_search.svg', import.meta.url).href
 }
 
 const formFields = [
