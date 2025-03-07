@@ -23,7 +23,7 @@ app.include_router(CollectionController().router, prefix="/api")
 app.include_router(PhotoController().router, prefix="/api")
 app.include_router(SearchController().router, prefix="/api")
 
-@app.on_event("startup")
+@app.lifespan("startup")
 async def startup_event():
     await init_db()
 

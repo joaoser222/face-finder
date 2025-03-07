@@ -1,0 +1,22 @@
+/**
+ * src/styles/settings.scss
+ *
+ * Configures SASS variables and Vuetify overwrites
+ */
+
+// https://vuetifyjs.com/features/sass-variables/`
+@use 'vuetify/settings' with (
+  $body-font-family: 'Poppins',
+  $heading-font-family: 'Poppins'
+);
+
+// Aplicando a fonte globalmente
+:root {
+  font-family: 'Poppins', sans-serif;
+}
+
+.v-application {
+  [class*='text-'] {
+    font-family: 'Poppins', sans-serif !important;
+  }
+}
