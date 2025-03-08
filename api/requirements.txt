@@ -1,5 +1,7 @@
 fastapi>=0.68.0
 uvicorn>=0.15.0
+psycopg2-binary
+asyncpg
 tortoise-orm>=0.17.8
 aiosqlite>=0.17.0 
 redis>=4.5.5

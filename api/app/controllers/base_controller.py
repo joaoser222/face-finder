@@ -4,10 +4,27 @@ from fastapi import APIRouter
 
 class BaseController:
     model = None
-    router = APIRouter()
-    endpoint = ''
+    prefix = ""
 
-    @router.post("/")
+    def __init__(self):
+        # Cria o router com o prefixo dinâmico
+        self.router = APIRouter(prefix=f"/{self.prefix}", tags=[self.prefix])
+
+        # Define as rotas
+        self.router.add_api_route("/list", self.get_all, methods=["GET"])
+        self.router.add_api_route("/show/{id}", self.show, methods=["GET"])
+        self.router.add_api_route("/create", self.create, methods=["POST"])
+        self.router.add_api_route("/delete/{id}", self.delete, methods=["DELETE"])
+
+    async def get_all(self):
+        return await self.model.all()
+
+    async def show(self, id: int):
+        record = await self.model.get_or_none(id=id)
+        if not record:
+            raise HTTPException(status_code=404, detail="Registro não encontrado")
+        return record
+
     async def create(self, params: dict):
         try:
             record = await self.model.create(**params)
@@ -15,21 +32,9 @@ class BaseController:
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-    @router.get(f"/{endpoint}")
-    async def get_all(self):
-        return await self.model.all()
-
-    @router.get(f"/{endpoint}/{id}")
-    async def get_by_id(self,id: int):
-        record = await self.model.get_or_none(id=id)
-        if not record:
-            raise HTTPException(status_code=404, detail="Registro não encontrado")
-        return record
-
-    @router.delete(f"/{endpoint}/{id}")
-    async def delete(self,id: int):
+    async def delete(self, id: int):
         record = await self.model.get_or_none(id=id)
         if not record:
             raise HTTPException(status_code=404, detail="Registro não encontrado")
         await record.delete()
-        return {"message": "Registro deletado com sucesso"} 
+        return {"message": "Registro deletado com sucesso"}

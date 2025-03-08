@@ -1,5 +1,5 @@
 <template>
-  <v-layout class="h-screen w-screen">
+  <v-layout class="mw-100 mh-100">
     <!-- Barra lateral escura -->
     <v-navigation-drawer
       permanent

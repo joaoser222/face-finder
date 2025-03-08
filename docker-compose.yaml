@@ -1,17 +1,18 @@
-version: "3.8"
-
 services:
   api:
-    build: .
+    build: ./api
     container_name: facefinder_api
     ports:
       - "8000:8000"
     depends_on:
+      - postgres
       - redis
     environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/facefinder
       - CELERY_BROKER_URL=redis://redis:6379/0
     volumes:
-      - .:/app
+      - ./api:/app
+    restart: unless-stopped
 
   client:
     build: ./client
@@ -20,9 +21,27 @@ services:
       - "8080:80"
     depends_on:
       - api
+    restart: unless-stopped
 
+  postgres:
+    image: postgres:latest
+    container_name: facefinder_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: facefinder
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+  
   redis:
     image: redis:latest
     container_name: facefinder_redis
     ports:
       - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
