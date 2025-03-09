@@ -7,7 +7,7 @@
       <v-card-text>
         <!-- Exibe a lista de itens se não houver um ID na rota -->
         <div v-if="!$route.params.id">
-          <div class="d-flex justify-space-between align-center mt-4" v-if="items.length > 0">
+          <div class="d-flex justify-space-between align-center my-4" v-if="items.length > 0">
             <div class="pr-2 w-100">
               <v-text-field 
                 v-model="search" 
@@ -26,29 +26,13 @@
             </div>
           </div>
 
-          <!-- Lista de itens -->
-          <v-list v-if="items.length > 0" class="mt-4">
-            <v-list-item
-              v-for="item in filteredItems"
-              :key="item.id"
-              :title="item[displayField]"
-              @click="viewItem(item)"
-            >
-              <template v-slot:append>
-                <v-btn
-                  icon="Pencil"
-                  size="small"
-                  @click="openDialog(item)"
-                />
-                <v-btn
-                  icon="Trash"
-                  size="small"
-                  color="error"
-                  @click="confirmDelete(item)"
-                />
-              </template>
-            </v-list-item>
-          </v-list>
+          <slot 
+            name="items" 
+            :items="items" 
+            :confirmDelete="confirmDelete"
+            :viewItem="viewItem"
+            v-if="items.length > 0" 
+          ></slot>
 
           <!-- Estado vazio -->
           <v-empty-state v-else>
@@ -96,7 +80,7 @@
               <!-- Slot para o formulário personalizado -->
               <slot name="form" 
                 :item="newItem"
-                :setForm="setForm"
+                :setFormStatus="setFormStatus"
               >
                 <!-- Conteúdo padrão caso o slot não seja fornecido -->
                 <p>Formulário personalizado não fornecido.</p>
@@ -112,7 +96,7 @@
                 color="primary" 
                 @click="save" 
                 :loading="loading"
-                :disabled="!isFormValid"
+                :disabled="!formStatus"
               >
                 Salvar
               </v-btn>
@@ -160,7 +144,7 @@ export default {
   },
   data() {
     return {
-      isFormValid: false,
+      formStatus: false,
       items: [],
       search: '',
       dialog: false,
@@ -169,13 +153,6 @@ export default {
       newItem: {}, // Usado apenas para criar novos itens
       selectedItem: null, // Item selecionado para visualização
       formErrors: {}
-    }
-  },
-  computed: {
-    filteredItems() {
-      return this.items.filter(item => 
-        item[this.displayField].toLowerCase().includes(this.search.toLowerCase())
-      )
     }
   },
   watch: {
@@ -192,9 +169,8 @@ export default {
     }
   },
   methods: {
-    setForm(data,status) {
-      this.isFormValid = status;
-      this.newItem = {...data};
+    setFormStatus(status) {
+      this.formStatus = status;
     },
     async fetchItems() {
       try {
@@ -275,8 +251,9 @@ export default {
     handleSearch() {
       this.$emit('search', this.search)
     },
-    viewItem(item) {
-      this.$router.push({ params: { id: item.id } }) // Navega para a rota com o ID do item
+    viewItem(item,event) {
+      console.log(event);
+      this.$router.push({ params: { id: item.id },force: true }) // Navega para a rota com o ID do item
     }
   },
   mounted() {
