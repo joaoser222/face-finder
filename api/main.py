@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config import init_db,close_db
-from app.controllers.user_controller import UserController
+from app.controllers.auth_controller import AuthController
 from app.controllers.collection_controller import CollectionController
 from app.controllers.photo_controller import PhotoController
 from app.controllers.search_controller import SearchController
@@ -31,7 +31,7 @@ app.add_middleware(
 )
 
 # Incluindo as rotas
-app.include_router(UserController().router)
+app.include_router(AuthController().router)
 app.include_router(CollectionController().router)
 app.include_router(PhotoController().router)
 app.include_router(SearchController().router)
