@@ -1,6 +1,9 @@
 # Usa uma imagem base com Python
 FROM python:3.11
 
+# Instala o Netcat e outras dependências úteis
+RUN apt-get update && apt-get install -y netcat-traditional && rm -rf /var/lib/apt/lists/*
+
 # Define o diretório de trabalho dentro do container
 WORKDIR /app
 
@@ -17,4 +20,4 @@ COPY . .
 EXPOSE 8000
 
 # Define o comando padrão ao iniciar o container
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "start.sh"]
