@@ -118,7 +118,7 @@
 </template>
 
 <script>
-import { validations } from '@/plugins/validator';
+import validations from '@/plugins/validations';
 import VPasswordInput from '@/components/VPasswordInput.vue';
 import api from '@/plugins/axios';
 import { useAuthStore } from '@/stores/authStore'; // Importe a store
