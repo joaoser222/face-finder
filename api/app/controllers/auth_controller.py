@@ -8,8 +8,6 @@ from app.models.session import Session
 from app.utils import get_current_user, get_password_hash, verify_password
 import os
 
-SESSION_EXPIRE_MINUTES = os.getenv("SESSION_EXPIRE_MINUTES")
-
 class AuthController:
     def __init__(self):
         # Cria o router com o prefixo dinâmico
@@ -23,7 +21,7 @@ class AuthController:
     async def create_session(self,user: User):
         try:
             token = str(uuid4())
-            expires_at = datetime.now(timezone.utc) + timedelta(minutes=int(SESSION_EXPIRE_MINUTES))
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=int(os.getenv("SESSION_EXPIRE_MINUTES")))
             await Session.create(user=user, token=token, expires_at=expires_at)
             return {"token": token, "expires_at": expires_at}
         except Exception as e:
