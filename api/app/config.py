@@ -2,18 +2,18 @@ from tortoise import Tortoise
 import os
 
 # Obtém a URL do banco de dados das variáveis de ambiente
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_POSTGRES_URL = os.getenv("DATABASE_POSTGRES_URL")
 
 # Verifica se a URL do banco de dados foi definida
-if not DATABASE_URL:
-    raise ValueError("A variável de ambiente DATABASE_URL não está definida.")
+if not DATABASE_POSTGRES_URL:
+    raise ValueError("A variável de ambiente não está definida.")
 
 async def init_db():
     """
     Inicializa o banco de dados usando o Tortoise ORM.
     """
     await Tortoise.init(
-        db_url=DATABASE_URL,
+        db_url=DATABASE_POSTGRES_URL,
         modules={
             'models': [
                 'app.models.user', 
@@ -21,7 +21,8 @@ async def init_db():
                 'app.models.photo', 
                 'app.models.face', 
                 'app.models.search', 
-                'app.models.search_collection'
+                'app.models.search_collection',
+                'app.models.session'
             ]
         }
     )
