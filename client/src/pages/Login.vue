@@ -22,29 +22,83 @@
           </v-card-title>
 
           <v-card-text class="px-0">
-            <DataForm
-              ref="formRef"
-              :items="currentFields"
-              :errors="formErrors"
-              @update="handleFormUpdate"
-              density="comfortable"
-              class="pa-0"
-            />
+            <!-- Formulário de Login/Cadastro -->
+            <v-form ref="form" v-model="formStatus" @submit.prevent="handleSubmit">
 
-            <!-- Botão de Submit -->
-            <v-btn
-              type="submit"
-              color="black"
-              block
-              size="large"
-              :loading="loading"
-              :disabled="!formStatus"
-              class="mt-6 mb-4"
-              elevation="0"
-              @click="handleSubmit"
-            >
-              {{ isLogin ? 'Entrar' : 'Criar conta' }}
-            </v-btn>
+              <!-- Campo de Nome de Usuário (apenas para cadastro) -->
+              <v-text-field
+                v-if="!isLogin"
+                v-model="form.username"
+                label="Nome de usuário"
+                :rules="[
+                  validations.required
+                ]"
+                prepend-inner-icon="mdi-account-circle"
+                outlined
+                dense
+                class="mb-4"
+              />
+              
+              <!-- Campo de Email -->
+              <v-text-field
+                v-model="form.email"
+                label="Email"
+                type="email"
+                :rules="[
+                  validations.required,
+                  validations.email
+                ]"
+                prepend-inner-icon="mdi-email"
+                outlined
+                dense
+                class="mb-4"
+              />
+
+              <!-- Campo de Senha -->
+              <v-password-input
+                v-model="form.password"
+                label="Senha"
+                type="password"
+                :rules="[
+                  validations.required,
+                  validations.minLength(6)
+                ]"
+                prepend-inner-icon="mdi-lock"
+                outlined
+                dense
+                class="mb-4"
+              />
+
+              <!-- Campo de Confirmar Senha (apenas para cadastro) -->
+              <v-password-input
+                v-if="!isLogin"
+                v-model="form.password_confirmation"
+                label="Confirmar senha"
+                type="password"
+                :rules="[
+                  validations.required,
+                  v => validations.sameAs(v,form.password)
+                ]"
+                prepend-inner-icon="mdi-lock"
+                outlined
+                dense
+                class="mb-4"
+              />
+
+              <!-- Botão de Submit -->
+              <v-btn
+                type="submit"
+                color="black"
+                block
+                size="large"
+                :loading="loading"
+                :disabled="!formStatus"
+                class="mt-6 mb-4"
+                elevation="0"
+              >
+                {{ isLogin ? 'Entrar' : 'Criar conta' }}
+              </v-btn>
+            </v-form>
 
             <!-- Link para alternar -->
             <div class="text-center">
@@ -63,114 +117,80 @@
   </v-container>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import DataForm from '@/components/DataForm.vue'
+<script>
+import { validations } from '@/plugins/validator';
+import VPasswordInput from '@/components/VPasswordInput.vue';
+import api from '@/plugins/axios';
+import { useAuthStore } from '@/stores/authStore'; // Importe a store
 
-const router = useRouter()
-const isLogin = ref(true)
-const loading = ref(false)
-const formRef = ref(null)
-const formData = ref({})
-const formStatus = ref(false)
-const formErrors = ref({})
-
-// Campos do formulário de login
-const loginFields = [
-  {
-    name: 'email',
-    label: 'Email',
-    component: 'text',
-    type: 'email',
-    validation: 'required|email',
-    prependInnerIcon: 'Mail',
-    colProps: { cols: 12 }
+export default {
+  name: 'Login',
+  components: {
+    VPasswordInput
   },
-  {
-    name: 'password',
-    label: 'Senha',
-    component: 'password',
-    validation: 'required|min:6',
-    prependInnerIcon: 'Lock',
-    colProps: { cols: 12 }
-  }
-]
-
-// Campos adicionais para o cadastro
-const registerFields = [
-  {
-    name: 'name',
-    label: 'Nome completo',
-    component: 'text',
-    validation: 'required',
-    fieldProps: {
-      'prepend-inner-icon': 'User',
-      'bg-color': 'grey-lighten-4'
+  data() {
+    return {
+      isLogin: true,
+      loading: false,
+      formStatus: false,
+      form: {
+        email: '',
+        password: '',
+        username: '',
+        password_confirmation: ''
+      },
+      errors: {}
+    }
+  },
+  computed: {
+    validations() {
+      return validations;
+    }
+  },
+  methods: {
+    toggleMode() {
+      this.isLogin = !this.isLogin
+      this.$refs.form.reset() // Reseta o formulário ao alternar o modo
+      this.errors = {}
     },
-    colProps: { cols: 12 }
-  },
-  {
-    name: 'username',
-    label: 'Nome de usuário',
-    component: 'text',
-    validation: 'required',
-    prependInnerIcon: 'UserCircle',
-    colProps: { cols: 12 }
-  },
-  ...loginFields,
-  {
-    name: 'confirmPassword',
-    label: 'Confirmar senha',
-    component: 'password',
-    validation: 'required|same:password',
-    prependInnerIcon: 'Lock',
-    colProps: { cols: 12 }
-  }
-]
+    async handleSubmit() {
+      if (!this.formStatus) return;
 
-// Campos atuais baseados no modo
-const currentFields = computed(() => isLogin.value ? loginFields : registerFields)
+      this.loading = true;
+      this.errors = {};
 
-const handleFormUpdate = ({ form, status }) => {
-  console.log('handleFormUpdate', form, status);
-  formData.value = form
-  formStatus.value = status
-}
+      try {
+        const authStore = useAuthStore(); 
 
-const toggleMode = () => {
-  isLogin.value = !isLogin.value
-  formData.value = {}
-  formErrors.value = {}
-}
+        let postData = {
+          url: '/auth/login',
+          data: {
+            email: this.form.email,
+            password: this.form.password
+          }
+        };
 
-const handleSubmit = async () => {
-  if (!formStatus.value) return
+        if (!this.isLogin) {
+          postData = {
+            url: '/auth/register',
+            data: {...this.form}
+          }
+        } 
 
-  loading.value = true
-  formErrors.value = {}
+        const data = await api.post(postData.url,postData.data);
+        authStore.setAuth(data.token, data.expires_at);
+        
+        this.$router.push('/dashboard');
 
-  try {
-    if (isLogin.value) {
-      // Lógica de login
-      console.log('Login:', {
-        email: formData.value.email,
-        password: formData.value.password
-      })
-      // await loginUser(formData.value)
-    } else {
-      // Lógica de cadastro
-      console.log('Cadastro:', formData.value)
-      // await registerUser(formData.value)
+      } catch (error) {
+        console.error('Error:', error);
+        if (error.response?.data?.errors) {
+          this.errors = error.response.data.errors;
+        }
+      } finally {
+        this.loading = false;
+      }
     }
-    router.push('/')
-  } catch (error) {
-    console.error('Error:', error)
-    if (error.response?.data?.errors) {
-      formErrors.value = error.response.data.errors
-    }
-  } finally {
-    loading.value = false
   }
 }
 </script>
