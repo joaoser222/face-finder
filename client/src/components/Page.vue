@@ -253,7 +253,7 @@ export default {
     },
     viewItem(item,event) {
       console.log(event);
-      this.$router.push({ params: { id: item.id },force: true }) // Navega para a rota com o ID do item
+      this.$router.push(`${this.$route.path}/${item.id}`) // Navega para a rota com o ID do item
     }
   },
   mounted() {
