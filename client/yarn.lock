@@ -2086,6 +2086,11 @@ magic-string@^0.30.11, magic-string@^0.30.14, magic-string@^0.30.17:
   dependencies:
     "@jridgewell/sourcemap-codec" "^1.5.0"
 
+maska@^3.1.1:
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/maska/-/maska-3.1.1.tgz#cd2857c70d33a23305f0396dffbb951966a328b2"
+  integrity sha512-68ZJfZ6/YANwv7CufbQmcCNoHdJnIRxuQgZtSFZe5ltlmZ15ZdA01siUGLh9EfaUX65DN0l/A7g+o2xjTICeGQ==
+
 math-intrinsics@^1.1.0:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/math-intrinsics/-/math-intrinsics-1.1.0.tgz#a0dd74be81e2aa5c2f27e65ce283605ee4e2b7f9"
