@@ -7,7 +7,7 @@ aiosqlite>=0.17.0
 redis>=4.5.5
 celery>=5.3.1
 celery[redis]>=5.3.1
+python-multipart
 python-dotenv>=1.0.1  
 python-jose[cryptography]
 passlib
-aerich[toml]
