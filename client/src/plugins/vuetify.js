@@ -50,6 +50,12 @@ export default createVuetify({
     VChip: {
       rounded: 'lg',
     },
+    VFileInput: {
+      prependIcon: null,
+      rounded: 'lg',
+      variant: 'outlined',
+      density: 'comfortable',
+    },
     VListItem: {
       rounded: 'lg',
     },
