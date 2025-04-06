@@ -79,7 +79,7 @@
             <v-card-text>
               <!-- Slot para o formulário personalizado -->
               <slot name="form" 
-                :item="newItem"
+                :item="form"
                 :setFormStatus="setFormStatus"
               >
                 <!-- Conteúdo padrão caso o slot não seja fornecido -->
@@ -94,7 +94,7 @@
               </v-btn>
               <v-btn 
                 color="primary" 
-                @click="save" 
+                @click="createItem" 
                 :loading="loading"
                 :disabled="!formStatus"
               >
@@ -133,6 +133,10 @@ export default {
         return ['title', 'subtitle', 'description', 'singular', 'plural','image'].every(key => key in prop)
       }
     },
+    useFormData: {
+      type: Boolean,
+      default: false
+    },
     endpoint: {
       type: String,
       required: true
@@ -150,7 +154,7 @@ export default {
       dialog: false,
       dialogDelete: false,
       loading: false,
-      newItem: {}, // Usado apenas para criar novos itens
+      form: {}, // Usado apenas para criar novos itens
       selectedItem: null, // Item selecionado para visualização
       formErrors: {}
     }
@@ -173,6 +177,9 @@ export default {
       this.formStatus = status;
     },
     async fetchItems() {
+      /**
+       * Carrega a lista de itens do endpoint
+      */
       try {
         this.loading = true
         const data = await api.get(`${this.endpoint}/list`)
@@ -185,6 +192,11 @@ export default {
       }
     },
     async fetchSelectedItem(id) {
+      /**
+       * Carrega o item selecionado do endpoint
+       * 
+       * @param {number} id - ID do item selecionado
+       */
       try {
         this.loading = true
         const data = await api.get(`${this.endpoint}/show/${id}`)
@@ -196,14 +208,66 @@ export default {
         this.loading = false
       }
     },
-    async save() {
+    getFormData(){
+      if(this.useFormData){
+        const formData = new FormData();
+
+        const { file, ...params } = this.form;
+
+        if(file) formData.append('file', this.form.file);
+
+        formData.append('params', JSON.stringify(params));
+                
+        return formData
+      }else{
+        return {...this.form}
+      }
+    },
+    async createItem() {
+      /**
+       * Salva o item no endpoint
+       */
       try {
         this.loading = true
         this.formErrors = {}
-        
-        const data = await api.post(`${this.endpoint}/create`, this.newItem)
+        let data = null;
+        const formData = this.getFormData()
+        if(this.useFormData){
+          data = await api.post(`${this.endpoint}/create`, formData,{headers: {'Content-Type': 'multipart/form-data'}})
+        } else {
+          data = await api.post(`${this.endpoint}/create`, formData)
+        }
+
         this.items.push(data)
-        this.$emit('saved', data)
+        this.$emit('create', {...this.form})
+        this.closeDialog()
+      } catch (error) {
+        console.error('Error saving item:', error)
+        if (error.response?.data?.errors) {
+          this.formErrors = error.response.data.errors
+        }
+        this.$emit('error', error)
+      } finally {
+        this.loading = false
+      }
+    },
+    async updateItem(id) {
+      /**
+       * Atualiza o item no endpoint
+       */
+      try {
+        this.loading = true;
+        this.formErrors = {};
+        let data = null;
+        const formData = this.getFormData()
+        if(this.useFormData){
+          data = await api.put(`${this.endpoint}/update/${id}`, formData,{headers: {'Content-Type': 'multipart/form-data'}});
+        } else {
+          data = await api.put(`${this.endpoint}/update/${id}`, formData);
+        }
+
+        this.items.push(data)
+        this.$emit('update', {...this.form})
         this.closeDialog()
       } catch (error) {
         console.error('Error saving item:', error)
@@ -232,13 +296,13 @@ export default {
       }
     },
     openDialog() {
-      this.newItem = {} // Reseta o novo item
+      this.form = {} // Reseta o novo item
       this.formErrors = {}
       this.dialog = true
     },
     closeDialog() {
       this.dialog = false
-      this.newItem = {}
+      this.form = {}
       this.formErrors = {}
     },
     confirmDelete(item) {
@@ -253,7 +317,7 @@ export default {
     },
     viewItem(item,event) {
       console.log(event);
-      this.$router.push(`${this.$route.path}/${item.id}`) // Navega para a rota com o ID do item
+      this.$router.push(`this.$route.path`) // Navega para a rota com o ID do item
     }
   },
   mounted() {
