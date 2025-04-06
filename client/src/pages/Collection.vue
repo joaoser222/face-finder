@@ -3,6 +3,7 @@
     :meta="meta"
     endpoint="/collections"
     display-field="name"
+    :use-form-data="true"
     @saved="handleSaved"
     @deleted="handleDeleted"
     @error="handleError"
@@ -25,6 +26,7 @@
                 <div class="font-weight-bold">{{ item.name }}</div>
                 <v-spacer></v-spacer>
                 <v-btn icon="Trash" @click="confirmDelete(item)" variant="text" rounded="circle" density="comfortable"></v-btn>
+                <v-btn icon="Pencil" @click="confirmDelete(item)" variant="text" rounded="circle" density="comfortable"></v-btn>
               </div>
             </div>
           </v-card>
@@ -38,10 +40,22 @@
           v-model="item.name"
           label="Nome"
           :rules="[validations.required]"
-          outlined
+          dense
+          placeholder="Nome da coleção"
+          class="mb-3"
+          v-maska="masks.uppercase"
+        />
+        <v-file-input
+          v-model="item.file"
+          label="Arquivo"
+          placeholder="Arquivo no formato ZIP"
+          :rules="[validations.required]"
           dense
           class="mb-3"
-        />
+        ></v-file-input>
+        <div class="text-caption">
+          **O arquivo deve estar no formato ZIP e conter apenas imagens no formato PNG ou JPG. Arquivos em outros formatos serão ignorados.
+        </div>
       </v-form>
     </template>
   </Page>
@@ -49,6 +63,7 @@
 
 <script>
 import validations from '@/plugins/validations';
+import masks from '@/plugins/masks';
 export default {
   data() {
     return {
@@ -66,6 +81,9 @@ export default {
   computed: {
     validations() {
       return validations;
+    },
+    masks() {
+      return masks;
     }
   },
   methods: {
