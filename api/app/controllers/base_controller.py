@@ -1,6 +1,10 @@
-from fastapi import HTTPException, Depends, APIRouter, Request
+from fastapi import HTTPException, Depends, APIRouter, UploadFile
 from app.utils import get_current_user
 from app.models.user import User
+from typing import Any
+from app.models.file import File
+import os
+from tortoise import transactions
 
 class BaseController:
     model = None
@@ -18,6 +22,7 @@ class BaseController:
         self.router.add_api_route("/list", self.get_all, methods=["GET"])
         self.router.add_api_route("/show/{id}", self.show, methods=["GET"])
         self.router.add_api_route("/create", self.create, methods=["POST"])
+        self.router.add_api_route("/update/{id}", self.update, methods=["PUT"])
         self.router.add_api_route("/delete/{id}", self.delete, methods=["DELETE"])
 
     async def set_current_user(self, user: User = Depends(get_current_user)):
@@ -40,19 +45,37 @@ class BaseController:
             raise HTTPException(status_code=400, detail=str(e))
 
     async def create(self, params: dict):
-        try:
-            params["user_id"] = self.current_user.id
-            record = await self.model.create(**params)
-            return record
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+        async with transactions.in_transaction() as transaction:
+            try:
+                params["user_id"] = self.current_user.id
+                record = await self.model.create(**params)
+                return record
+            except Exception as e:
+                await transaction.rollback()
+                raise HTTPException(status_code=400, detail=str(e))
+    
+    async def update(self, id: int, params: dict):
+        async with transactions.in_transaction() as transaction:
+            try:
+                params["user_id"] = self.current_user.id
+                record = await self.model.get_or_none(id=id)
+                if not record:
+                    raise HTTPException(status_code=404, detail="Registro não encontrado")
+                await record.update(**params)
+                return record
+            except Exception as e:
+                await transaction.rollback()
+                raise HTTPException(status_code=400, detail=str(e))
 
     async def delete(self, id: int):
-        try:
-            record = await self.model.get_or_none(id=id)
-            if not record:
-                raise HTTPException(status_code=404, detail="Registro não encontrado")
-            await record.delete()
-            return {"message": "Registro deletado com sucesso"}
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+        async with transactions.in_transaction() as transaction:
+            try:
+                record = await self.model.get_or_none(id=id)
+                if not record:
+                    raise HTTPException(status_code=404, detail="Registro não encontrado")
+                await record.delete()
+                return {"message": "Registro deletado com sucesso"}
+            except Exception as e:
+                await transaction.rollback()
+                raise HTTPException(status_code=400, detail=str(e))
+    
