@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 from passlib.context import CryptContext
 import uuid
 import os
+import logging
+from logging.handlers import RotatingFileHandler
+
 
 security = HTTPBearer()
 
@@ -53,3 +56,35 @@ def generate_unique_filename(original_filename: str) -> str:
     unique_id = uuid.uuid4().hex
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     return f"{timestamp}_{unique_id}{ext.lower()}"
+
+def setup_logging():
+    # Formato do log
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(log_format)
+
+    # Configuração do logger principal
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # Cria o diretório de logs se não existir
+    os.makedirs("/app/logs", exist_ok=True)
+
+    # Handler para arquivo (com rotação)
+    file_handler = RotatingFileHandler(
+        filename="/app/logs/app.log",
+        maxBytes=1024 * 1024 * 5,  # 5 MB
+        backupCount=3,
+        encoding="utf-8"
+    )
+    
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    # Handler para console (opcional)
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    # Desabilitar logs duplicados do uvicorn
+    logging.getLogger("uvicorn.access").handlers = []
+    logging.getLogger("uvicorn").propagate = False

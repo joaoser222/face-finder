@@ -5,10 +5,12 @@ from app.config import init_db,close_db
 from app.controllers.auth_controller import AuthController
 from app.controllers.collection_controller import CollectionController
 from app.controllers.search_controller import SearchController
+from app.utils import setup_logging
 
 # Usando o lifespan para gerenciar eventos de startup e shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging()
     await init_db()  # Inicializa o banco de dados
     yield
     await close_db()  # Fecha as conexões com o banco de dados
