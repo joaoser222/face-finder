@@ -4,6 +4,8 @@ from app.models.user import User
 from app.models.session import Session
 from datetime import datetime, timezone
 from passlib.context import CryptContext
+import uuid
+import os
 
 security = HTTPBearer()
 
@@ -44,3 +46,10 @@ def get_password_hash(password: str):
 # Função para verificar uma senha
 def verify_password(plain_password: str, hashed_password: str):
     return pwd_context.verify(plain_password, hashed_password)
+
+# Função para gerar um nome de arquivo único
+def generate_unique_filename(original_filename: str) -> str:
+    _, ext = os.path.splitext(original_filename)
+    unique_id = uuid.uuid4().hex
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    return f"{timestamp}_{unique_id}{ext.lower()}"
