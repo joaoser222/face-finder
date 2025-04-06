@@ -2,7 +2,7 @@ from tortoise import fields, models
 
 class Queue(models.Model):
     id = fields.IntField(pk=True)
-    user = fields.ForeignKeyField('models.User', related_name='collections')
+    user = fields.ForeignKeyField('models.User', related_name='queues')
     status = fields.IntField(default=0)
     process_type = fields.CharField(max_length=50)
     owner_type = fields.CharField(max_length=20)
