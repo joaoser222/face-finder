@@ -5,7 +5,7 @@ from typing import Any
 from app.models.file import File
 import os
 from tortoise import transactions
-
+import shutil
 class BaseController:
     model = None
     prefix = ""
@@ -71,13 +71,23 @@ class BaseController:
         async with transactions.in_transaction() as transaction:
             try:
                 record = await self.model.get_or_none(id=id)
+                model_name = record.__class__.__name__.lower()
+                model_folder = f"/app/files/{model_name}/{record.id}"
                 if not record:
                     raise HTTPException(status_code=404, detail="Registro não encontrado")
+                
+                # Remove todos os arquivos do diretório local
+                if os.path.exists(model_folder):
+                    shutil.rmtree(model_folder)
+                
+                # Remove todos os arquivos do banco de dados
+                await File.filter(owner_type=model_name, owner_id=record.id).delete()
+
                 await record.delete()
-                return {"message": "Registro deletado com sucesso"}
+                return record
             except Exception as e:
                 await transaction.rollback()
-                raise HTTPException(status_code=400, detail=str(e))
+                raise HTTPException(400, str(e))
     
     async def process_uploaded_file(self, file: UploadFile, owner: Any):
         """
@@ -91,15 +101,15 @@ class BaseController:
         """
         async with transactions.in_transaction() as transaction:
             try:
-                file_record = await File.create_file(owner, file.file_name,file.size)
+                file_record = await File.create_file(owner, file.filename,file.size)
 
                 # Cria a estrutura de diretórios se não existir
                 directory = os.path.dirname(file_record.file_path)
                 os.makedirs(directory, exist_ok=True)
 
-            # Salva o arquivo na pasta local
-                with open(file_record.file_path, "wb") as f:
-                    f.write(await file.read())
+                # Salva o arquivo na pasta local
+                with open(file_record.file_path, "wb") as buffer:
+                    shutil.copyfileobj(file.file, buffer)
                 
                 return file_record
             except Exception as e:
