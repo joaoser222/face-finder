@@ -1,6 +1,6 @@
 from tortoise import fields, models
 from typing import Any
-from utils import generate_unique_filename
+from app.utils import generate_unique_filename
 import os
 
 class File(models.Model):
@@ -33,16 +33,19 @@ class File(models.Model):
         file_size: int
     ) -> 'File':
         """Cria um novo arquivo associado a uma entidade dona."""
-        owner_type = owner.__class__.__name__.lower()
-        unique_filename = generate_unique_filename(file_name)
-        _,ext = os.path.splitext(unique_filename)
-        file = await cls.create(
-            original_name=file_name,
-            file_path=f"/files/{owner_type}/{owner.id}/{unique_filename}",
-            extension_type=ext,
-            size=file_size,
-            owner_type=owner_type,
-            owner_id=owner.id,
-        )
+        try:
+            owner_type = owner.__class__.__name__.lower()
+            unique_filename = generate_unique_filename(file_name)
+            _,ext = os.path.splitext(unique_filename)
+            file = await cls.create(
+                original_name=file_name,
+                file_path=f"/app/files/{owner_type}/{owner.id}/{unique_filename}",
+                extension_type=ext,
+                size=file_size,
+                owner_type=owner_type,
+                owner_id=owner.id,
+            )
+            return file
+        except Exception as e:
+            raise
         
-        return file
