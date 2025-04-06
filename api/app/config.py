@@ -20,12 +20,12 @@ TORTOISE_ORM = {
             "models": [
                 "app.models.user", 
                 "app.models.collection", 
-                "app.models.photo", 
+                "app.models.file", 
                 "app.models.face", 
                 "app.models.search", 
-                "app.models.search_collection",
+                "app.models.search_face",
                 "app.models.session",
-                "aerich.models",
+                "app.models.queue"
             ],
             "default_connection": "default",
         }
