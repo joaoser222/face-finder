@@ -79,3 +79,29 @@ class BaseController:
                 await transaction.rollback()
                 raise HTTPException(status_code=400, detail=str(e))
     
+    async def process_uploaded_file(self, file: UploadFile, owner: Any):
+        """
+        Processa o arquivo e retorna o registro do arquivo processado
+
+        Args:
+            file (UploadFile): Arquivo enviado pelo usuário
+            owner (Any): Entidade proprietária do arquivo
+        Returns:
+            File: Arquivo processado
+        """
+        async with transactions.in_transaction() as transaction:
+            try:
+                file_record = await File.create_file(owner, file.file_name,file.size)
+
+                # Cria a estrutura de diretórios se não existir
+                directory = os.path.dirname(file_record.file_path)
+                os.makedirs(directory, exist_ok=True)
+
+            # Salva o arquivo na pasta local
+                with open(file_record.file_path, "wb") as f:
+                    f.write(await file.read())
+                
+                return file_record
+            except Exception as e:
+                await transaction.rollback()
+                raise HTTPException(status_code=400, detail=str(e))
