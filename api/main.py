@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from app.config import init_db,close_db
 from app.controllers.auth_controller import AuthController
 from app.controllers.collection_controller import CollectionController
-from app.controllers.photo_controller import PhotoController
 from app.controllers.search_controller import SearchController
 
 # Usando o lifespan para gerenciar eventos de startup e shutdown
@@ -33,7 +32,6 @@ app.add_middleware(
 # Incluindo as rotas
 app.include_router(AuthController().router)
 app.include_router(CollectionController().router)
-app.include_router(PhotoController().router)
 app.include_router(SearchController().router)
 
 # Rota de teste
