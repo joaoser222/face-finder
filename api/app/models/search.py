@@ -7,6 +7,7 @@ class Search(models.Model):
     original_name = fields.CharField(max_length=500)
     tolerance_level = fields.IntField()
     file = fields.ForeignKeyField('models.File', related_name='searches')
+    collections = fields.JSONField(default=[])
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now_add=True)
 
