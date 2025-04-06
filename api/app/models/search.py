@@ -6,7 +6,7 @@ class Search(models.Model):
     user = fields.ForeignKeyField('models.User', related_name='searches')
     original_name = fields.CharField(max_length=500)
     tolerance_level = fields.IntField()
-    file_path = fields.CharField(max_length=500)
+    file = fields.ForeignKeyField('models.File', related_name='searches')
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now_add=True)
 
