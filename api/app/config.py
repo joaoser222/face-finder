@@ -1,10 +1,5 @@
 from tortoise import Tortoise
 import os
-from dotenv import load_dotenv
-
-# Carrega as variáveis de ambiente do .env
-load_dotenv(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env")))
-            
 
 # Verifica se a URL do banco de dados foi definida
 if not os.getenv("DATABASE_POSTGRES_URL"):
