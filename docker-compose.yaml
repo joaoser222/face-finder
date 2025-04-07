@@ -14,6 +14,19 @@ services:
       - SESSION_EXPIRE_MINUTES=240
       - DATABASE_POSTGRES_URL=postgres://postgres:password@postgres:5432/facefinder
   
+  celery:
+    build: ./api
+    container_name: facefinder_celery
+    command: celery -A app.celery_worker.celery_app worker --loglevel=info
+    volumes:
+      - ./api:/app
+    depends_on:
+      - redis
+      - postgres
+    restart: unless-stopped
+    environment:
+      - DATABASE_POSTGRES_URL=postgres://postgres:password@postgres:5432/facefinder
+      - DATABASE_REDIS_URL=redis://redis:6379/0
 
   client:
     build: ./client
