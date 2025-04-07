@@ -88,3 +88,6 @@ def setup_logging():
     # Desabilitar logs duplicados do uvicorn
     logging.getLogger("uvicorn.access").handlers = []
     logging.getLogger("uvicorn").propagate = False
+
+def logger():
+    return logging.getLogger()
