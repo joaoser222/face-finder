@@ -15,12 +15,8 @@ const routes = [
   {
     path: '/',
     component: () => import('@/pages/Layout.vue'),
-    redirect: '/dashboard',
+    redirect: '/collections',
     children: [
-      {
-        path: 'dashboard',
-        component: () => import('@/pages/Dashboard.vue'),
-      },
       {
         path: 'collections',
         component: () => import('@/pages/Collection.vue'),
