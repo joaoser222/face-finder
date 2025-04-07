@@ -35,8 +35,3 @@ app.add_middleware(
 app.include_router(AuthController().router)
 app.include_router(CollectionController().router)
 app.include_router(SearchController().router)
-
-# Rota de teste
-@app.get("/")
-async def root():
-    return {"message": "API está funcionando!"}
