@@ -1,6 +1,6 @@
 from app.models.search import Search
-from app.controllers.base_controller import BaseController
+from .view_controller import ViewController
 
-class SearchController(BaseController):
+class SearchController(ViewController):
     model = Search
     prefix = "searches"
