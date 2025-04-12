@@ -2,7 +2,6 @@ from fastapi import HTTPException, Depends, UploadFile,Query
 from fastapi.responses import JSONResponse
 from app.utils import logger_info,logger_error
 from typing import Any
-from app.models.file import File
 import os
 from tortoise import transactions
 import shutil
@@ -145,9 +144,6 @@ class ViewController(BaseController):
                 # Remove todos os arquivos do diretório local
                 if os.path.exists(model_folder):
                     shutil.rmtree(model_folder)
-                
-                # Remove todos os arquivos do banco de dados
-                await File.filter(owner_type=model_name, owner_id=record.id).delete()
 
                 await record.delete()
                 return JSONResponse(content={})
@@ -156,7 +152,7 @@ class ViewController(BaseController):
                 logger_error(__name__,e)
                 raise HTTPException(400, str(e))
     
-    async def process_uploaded_file(self, file: UploadFile, owner: Any):
+    async def process_uploaded_file(self, file: UploadFile,file_model: Any, owner: Any):
         """
         Processa o arquivo e retorna o registro do arquivo processado
 
@@ -164,11 +160,11 @@ class ViewController(BaseController):
             file (UploadFile): Arquivo enviado pelo usuário
             owner (Any): Entidade proprietária do arquivo
         Returns:
-            File: Arquivo processado
+            FileModel: Arquivo processado
         """
         async with transactions.in_transaction() as transaction:
             try:
-                file_record = await File.create_file(owner, file.filename,file.size)
+                file_record = await file_model.create_file(owner, file.filename,file.size)
 
                 # Cria a estrutura de diretórios se não existir
                 directory = os.path.dirname(file_record.file_path)
