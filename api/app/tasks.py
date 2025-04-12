@@ -56,25 +56,44 @@ async def wrap_db_ctx(func, *args, **kwargs) -> None:
 def async_to_sync(func, *args, **kwargs) -> None:
     asyncio.run(wrap_db_ctx(func, *args, **kwargs))
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
-def queue_process(self, queue_id):
+async def process_queue(queue_id=None):
+    """
+    Processa uma queue
+    Args:
+        queue_id (int,optional): ID da queue
+    """
     try:
-        async def process_queue(queue_id):
-            async with in_transaction():
-                queue = await Queue.get_or_none(id=queue_id).select_for_update()
-                if not queue:
-                    raise Exception("Queue não encontrada")
-                
-                # Atualiza status para "processando"
-                queue.status = 1
-                await queue.save()
-                
-                task_func = globals().get(queue.process_type)
-                if not task_func:
-                    raise Exception(f"Tipo de processo inválido: {queue.process_type}")
-                
-                await task_func(queue)
-                
+        async with in_transaction():
+            if(queue_id is None):
+                queue = await Queue.filter(status=0).limit(1).select_for_update().get()
+            else:
+                queue = await Queue.select_for_update().get_or_none(id=queue_id)
+
+            if not queue:
+                raise Exception("Queue não encontrada")
+        
+            # Atualiza status para "processando"
+            queue.status = 1
+            await queue.save()
+            
+            task_func = globals().get(queue.process_type)
+            if not task_func:
+                raise Exception(f"Tipo de processo inválido: {queue.process_type}")
+            
+            await task_func(queue)
+            
+            # Atualiza status para "concluído"
+            queue.status = 2
+            await queue.save()
+    except Exception as e:
+        queue.status = -1
+        await queue.save()
+        logger_error(__name__, f"Erro ao processar queue {queue_id}: {str(e)}")
+        raise
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
+def send_queue(self, queue_id):
+    try:
         async_to_sync(process_queue, queue_id)
         
     except Exception as exc:
@@ -86,6 +105,15 @@ def queue_process(self, queue_id):
                 lambda: Queue.filter(id=queue_id).update(status=-1, error_message=str(exc))
             )
         raise
+
+
+@celery_app.task
+def periodic_check():
+    """Verificação periódica a cada minuto"""
+    try:
+        async_to_sync(process_queue)
+    except Exception as e:
+        logger_error(__name__, f"Erro na verificação periódica: {str(e)}")
 
 async def collection_uncompression(queue):
     """
