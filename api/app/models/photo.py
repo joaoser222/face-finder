@@ -12,6 +12,8 @@ class Photo(FileModel):
     mime_type = fields.CharField(max_length=100)
     size = fields.IntField()  # Tamanho em bytes
     user = fields.ForeignKeyField('models.User', related_name='photos')
+    face_count = fields.IntField(default=0)
+    is_indexed = fields.BooleanField(default=False) 
 
     class Meta:
         table = "photos"
