@@ -15,7 +15,8 @@ TORTOISE_ORM = {
             "models": [
                 "app.models.user", 
                 "app.models.collection", 
-                "app.models.file", 
+                "app.models.photo",
+                "app.models.archive",
                 "app.models.face", 
                 "app.models.search", 
                 "app.models.search_face",
