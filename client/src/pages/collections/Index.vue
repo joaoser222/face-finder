@@ -28,12 +28,12 @@
               </div>
             </div>
             <v-img
-              :src="`/api/files/thumbnail/${item.thumbnail_file_id}`"
+              :src="`/api/photos/thumbnail/${item.thumbnail_photo_id}`"
               height="200px"
               class="align-end"
               cover
               @click="viewItem(item)"
-              v-if="item.thumbnail_file_id"
+              v-if="item.thumbnail_photo_id"
             >
             </v-img>
             <div 
