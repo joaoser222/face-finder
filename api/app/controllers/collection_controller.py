@@ -4,14 +4,12 @@ from typing import Optional
 import json
 from app.models.collection import Collection
 from app.models.queue import Queue
-from app.models.file import File
+from app.models.archive import Archive
 from tortoise import transactions
 from .view_controller import ViewController
-from app.tasks import queue_process
-from app.utils import logger_info,logger_error,QueryBuilder
-from tortoise.connection import connections
+from app.tasks import send_queue
+from app.utils import logger_info,logger_error
 from fastapi import Query
-from tortoise.expressions import Q
 
 class CollectionController(ViewController):
     model = Collection
@@ -90,19 +88,19 @@ class CollectionController(ViewController):
             record (Collection): Registro da collection
         """
         try:
-            file_record = await self.process_uploaded_file(file, record)
+            file_record = await self.process_uploaded_file(file, Archive,record)
             
             # Cria a queue de descompactação
             queue = await Queue.create(
                 user_id=self.current_user.id,
-                process_type="uncompression",
+                process_type="collection_uncompression",
                 owner_type=file_record.__class__.__name__,
                 owner_id=file_record.id
             )
 
             logger_info(__name__,f"Queue criada para descompactação: {queue.id}")
 
-            queue_process.delay(queue.id)
+            send_queue.delay(queue.id)
         except Exception as e:
             logger_error(__name__,e)
             raise
