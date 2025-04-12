@@ -26,8 +26,7 @@
 
 <script setup>
   const menuItems = [
-    { icon: 'Home', to: '/dashboard' },
-    { icon: 'Layout2', to: '/collections' },
+    { icon: 'LayoutGrid', to: '/collections' },
     { icon: 'UserSearch', to: '/searches' },
     { icon: 'Settings', to: '/settings' },
   ]
