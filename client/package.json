@@ -12,6 +12,7 @@
   "dependencies": {
     "@mdi/font": "7.4.47",
     "@tabler/icons-vue": "^3.31.0",
+    "@vueuse/core": "^13.1.0",
     "axios": "^1.8.1",
     "maska": "^3.1.1",
     "pinia": "^3.0.1",
