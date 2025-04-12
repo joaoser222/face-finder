@@ -6,12 +6,16 @@ from app.models.archive import Archive
 from app.models.photo import Photo
 from app.models.collection import Collection
 from app.models.queue import Queue
+from app.models.face import Face
 from app.utils import logger_info, logger_error
 import shutil
 import asyncio
 from app.config import init_db, close_db
 import redis
 from tortoise.transactions import in_transaction
+import cv2
+from insightface.app import FaceAnalysis
+from concurrent.futures import ThreadPoolExecutor
 
 # Configuração do Redis
 redis_client = redis.from_url(os.getenv("DATABASE_REDIS_URL"))
@@ -175,4 +179,102 @@ async def collection_uncompression(queue):
         logger_error(__name__, f"Erro ao descompactar: {str(e)}")
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir, ignore_errors=True)
+        raise
+
+async def __process_single_photo(photo, app, collection):
+    """
+    Processa uma única foto de forma assíncrona dentro do thread pool
+    """
+    try:
+        # Carregar imagem
+        img = cv2.imread(photo.file_path)
+        if img is None:
+            logger_error(__name__, f'Não foi possível carregar a imagem: {photo.file_path}')
+            return photo  # Retorna a foto não modificada
+
+        # Detectar faces (esta parte roda na thread do pool)
+        faces = app.get(img)
+
+        # Processar faces detectadas
+        for face in faces:
+            faces_json = {
+                "bbox": face.bbox.tolist(),
+                "landmark": face.landmark.tolist() if face.landmark is not None else None,
+                "gender": int(face.gender) if hasattr(face, "gender") else None,
+                "age": int(face.age) if hasattr(face, "age") else None,
+                "embedding": face.embedding.tolist() if hasattr(face, "embedding") else None,
+                "score": float(face.det_score),
+            }
+
+            # Salvar face no banco de dados (parte assíncrona)
+            await Face.create(
+                data=faces_json,
+                user_id=photo.user_id,
+                photo_id=photo.id,
+                collection_id=collection.id
+            )
+            photo.face_count += 1
+
+        photo.is_indexed = True
+        await photo.save()
+        return photo
+        
+    except Exception as e:
+        logger_error(__name__, f"Erro ao processar foto {photo.id}: {str(e)}")
+        return photo  # Retorna a foto mesmo com erro para continuar o processamento
+
+async def collection_indexation(queue):
+    """
+    Indexa as imagens de uma coleção usando processamento paralelo
+    """
+    try:
+        async with in_transaction():
+            collection = await Collection.get_or_none(id=queue.owner_id)
+
+            if not collection:
+                await queue.delete()
+                logger_error(__name__, f'Coleção {queue.owner_id} não encontrada')
+                return 
+            
+            # Atualiza status da coleção para "processando"
+            collection.status = 2
+            await collection.save()
+            
+            # Obtém todas as fotos da coleção
+            photos = await Photo.filter(collection=collection, is_indexed=False).all()
+            
+            # Inicializa o FaceAnalysis uma única vez (será reutilizado nas threads)
+            app = FaceAnalysis(name="buffalo_l")
+            app.prepare(ctx_id=0, det_size=(640, 640))
+
+            # Configuração do ThreadPool
+            max_workers = min(4, len(photos))  # Limita a 4 threads ou menos se tiver poucas fotos
+            loop = asyncio.get_running_loop()
+            
+            # Processa as fotos em paralelo
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                tasks = []
+                for photo in photos:
+                    # Submete cada foto para processamento no thread pool
+                    task = loop.run_in_executor(
+                        executor,
+                        lambda p=photo: asyncio.run_coroutine_threadsafe(
+                            __process_single_photo(p, app, collection),
+                            loop
+                        ).result()
+                    )
+                    tasks.append(task)
+                
+                # Aguarda a conclusão de todas as tarefas
+                await asyncio.gather(*tasks)
+            
+            # Atualiza coleção para "concluído"
+            collection.status = 1
+            await collection.save()
+            
+            await queue.delete()
+            logger_info(__name__, f'Imagens da coleção {collection.id} indexadas com sucesso')
+            
+    except Exception as e:
+        logger_error(__name__, f"Erro ao indexar coleção: {str(e)}")
         raise
