@@ -1,13 +1,10 @@
 from tortoise import fields, models
-from app.models.user import User
+from .base import BaseModel
 
-class SearchFace(models.Model):
-    id = fields.IntField(pk=True)
+class SearchFace(BaseModel):
     search = fields.ForeignKeyField('models.Search', related_name='search_faces')
     face = fields.ForeignKeyField('models.Face', related_name='search_faces')
     user = fields.ForeignKeyField('models.User', related_name='search_faces')
-    created_at = fields.DatetimeField(auto_now_add=True)
-    updated_at = fields.DatetimeField(auto_now_add=True)
 
     class Meta:
         table = "search_faces"

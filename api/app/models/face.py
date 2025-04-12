@@ -1,14 +1,11 @@
 from tortoise import fields, models
+from .base import BaseModel
 
-class Face(models.Model):
-    id = fields.IntField(pk=True)
+class Face(BaseModel):
     bbox = fields.JSONField()
     user = fields.ForeignKeyField('models.User', related_name='faces')
     photo = fields.ForeignKeyField('models.File', related_name='faces')
     collection = fields.ForeignKeyField('models.Collection', related_name='faces')
-    created_at = fields.DatetimeField(auto_now_add=True)
-    updated_at = fields.DatetimeField(auto_now_add=True)
-
 
     class Meta:
         table = "faces"
