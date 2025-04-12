@@ -19,7 +19,12 @@ const routes = [
     children: [
       {
         path: 'collections',
-        component: () => import('@/pages/Collection.vue'),
+        component: () => import('@/pages/collections/Index.vue'),
+      },
+      {
+        path: 'collections/:id',
+        props: true,
+        component: () => import('@/pages/collections/Item.vue'),
       },
       {
         path: 'searches',

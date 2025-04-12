@@ -1,21 +1,126 @@
-from fastapi import UploadFile, File, Form,HTTPException
+from fastapi import UploadFile, Form,HTTPException
+from fastapi.responses import JSONResponse
 from typing import Optional
 import json
 from app.models.collection import Collection
-from app.models.file import File
 from app.models.queue import Queue
+from app.models.file import File
 from tortoise import transactions
-from .base_controller import BaseController
+from .view_controller import ViewController
+from app.tasks import queue_process
+from app.utils import logger_info,logger_error,QueryBuilder
+from tortoise.connection import connections
+from fastapi import Query
+from tortoise.expressions import Q
 
-class CollectionController(BaseController):
+class CollectionController(ViewController):
     model = Collection
     prefix = "collections"
+
+    def __init__(self):
+        super().__init__()
+        self.router.add_api_route("/show-photos/{id}", self.show_photos, methods=["GET"])
+        self.router.add_api_route("/delete-photo/{collection_id}/{file_id}", self.delete_photo, methods=["DELETE"])
+
+    async def show_photos(
+        self,
+        id: int,
+        page: int = Query(1, ge=1, description="Número da página"),
+        per_page: int = Query(24, ge=1, le=100, description="Itens por página")
+    ):
+        """
+        Retorna fotos paginadas de uma collection
+        
+        Args:
+            id (int): Id da collection
+            page (int): Número da página (default: 1)
+            per_page (int): Itens por página (default: 24, max: 100)
+        
+        Returns:
+            dict: {
+                "items": lista de fotos,
+                "total": total de fotos,
+                "page": página atual,
+                "per_page": itens por página,
+                "total_pages": total de páginas
+            }
+        """
+        try:
+            query = File.filter(
+                owner_type="collection",
+                owner_id=id,
+                mime_type__startswith="image"
+            )
+            
+            return await self.query_paginator(query, page)
+            
+        except Exception as e:
+            logger_error(__name__, e)
+            raise HTTPException(status_code=400, detail=str(e))
+    
+    async def delete_photo(self, collection_id: int, file_id: int):
+        """
+        Deleta uma foto da collection
+
+        Args:
+            collection_id (int): Id da collection
+            file_id (int): Id da foto
+        """
+        try:
+            photo = await File.filter(
+                        id=file_id,
+                        owner_type="collection", 
+                        owner_id=collection_id, 
+                        user_id=self.current_user.id
+                    ).get_or_none()
+            if not photo:
+                raise HTTPException(status_code=404, detail="Foto não encontrada")
+            await photo.delete()
+            return JSONResponse(content={})
+        except Exception as e:
+            logger_error(__name__, e)
+            raise HTTPException(status_code=400, detail=str(e))
+    
+    async def __process_compressed_file(self, file: UploadFile, record):
+        """
+        Processa o arquivo compactado
+
+        Args:
+            file (UploadFile): Arquivo compactado enviado pelo usuário
+            record (Collection): Registro da collection
+        """
+        try:
+            file_record = await self.process_uploaded_file(file, record)
+            
+            # Cria a queue de descompactação
+            queue = await Queue.create(
+                user_id=self.current_user.id,
+                process_type="uncompression",
+                owner_type=file_record.__class__.__name__,
+                owner_id=file_record.id
+            )
+
+            logger_info(__name__,f"Queue criada para descompactação: {queue.id}")
+
+            queue_process.delay(queue.id)
+        except Exception as e:
+            logger_error(__name__,e)
+            raise
 
     async def create(
         self,
         file: UploadFile,
         params: str = Form(...)
     ):
+        """
+        Cria um novo registro de collection
+
+        Args:
+            file (UploadFile): Arquivo compactado enviado pelo usuário
+            params (str): Parâmetros do registro
+        Returns:
+            Collection: Registro criado
+        """
         async with transactions.in_transaction() as transaction:
             try:
                 # Converte a string JSON para dicionário
@@ -24,24 +129,18 @@ class CollectionController(BaseController):
 
                 record = await self.model.create(**params_dict)
 
-                # Processa o arquivo dentro da mesma transaction
-                file_record = await self.process_uploaded_file(file, record)
+                # Processa o arquivo
+                await self.__process_compressed_file(file, record)
                 
-                # Cria a queue de descompactação
-                queue = await Queue.create(
-                    user_id=self.current_user.id,
-                    process_type="uncompression",
-                    owner_type=file_record.__class__.__name__,
-                    owner_id=file_record.id
-                )
-
                 return record
 
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 await transaction.rollback()
-                raise HTTPException(400, "Parâmetros inválidos (não é JSON válido)")
+                logger_error(__name__,e)
+                raise HTTPException(400, str(e))
             except Exception as e:
                 await transaction.rollback()
+                logger_error(__name__,e)
                 raise HTTPException(400, str(e))
     
     async def update(
@@ -50,6 +149,16 @@ class CollectionController(BaseController):
         file: Optional[UploadFile],
         params: str = Form(...)
     ):
+        """
+        Atualiza um registro de collection pelo id
+
+        Args:
+            id (int): Id do registro
+            file (UploadFile,optional): Arquivo compactado enviado pelo usuário
+            params (str): Parâmetros do registro
+        Returns:
+            Collection: Registro atualizado
+        """
         async with transactions.in_transaction() as transaction:
             try:
                 # Converte a string JSON para dicionário
@@ -63,21 +172,15 @@ class CollectionController(BaseController):
 
                 # Caso exista um novo arquivo na atualização, processa o arquivo
                 if file:
-                    file_record = await self.process_uploaded_file(file, record)
-                    
-                    # Cria a queue de descompactação
-                    queue = await Queue.create(
-                        user_id=self.current_user.id,
-                        process_type="uncompression",
-                        owner_type=file_record.__class__.__name__,
-                        owner_id=file_record.id
-                    )
+                    await self.__process_compressed_file(file, record)
 
                 return record
 
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
                 await transaction.rollback()
+                logger_error(__name__,e)
                 raise HTTPException(400, "Parâmetros inválidos (não é JSON válido)")
             except Exception as e:
                 await transaction.rollback()
+                logger_error(__name__,e)
                 raise HTTPException(400, str(e))
