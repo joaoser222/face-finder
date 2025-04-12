@@ -56,6 +56,12 @@ export default createVuetify({
       variant: 'outlined',
       density: 'comfortable',
     },
+    VAutocomplete: {
+      rounded: 'lg',
+      clearIcon: 'X',
+      variant: 'outlined',
+      density: 'comfortable',
+    },
     VListItem: {
       rounded: 'lg',
     },
