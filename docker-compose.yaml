@@ -13,6 +13,7 @@ services:
     environment:
       - SESSION_EXPIRE_MINUTES=240
       - DATABASE_POSTGRES_URL=postgres://postgres:password@postgres:5432/facefinder
+      - DATABASE_REDIS_URL=redis://redis:6379/0
   
   celery:
     build: ./api
@@ -25,6 +26,7 @@ services:
       - postgres
     restart: unless-stopped
     environment:
+      - SESSION_EXPIRE_MINUTES=240
       - DATABASE_POSTGRES_URL=postgres://postgres:password@postgres:5432/facefinder
       - DATABASE_REDIS_URL=redis://redis:6379/0
 
