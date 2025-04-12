@@ -34,6 +34,15 @@ celery_app.conf.update(
     task_reject_on_worker_lost=True,
 )
 
+# Configurações do Beat (agendador)
+celery_app.conf.beat_schedule = {
+    'periodic_check': {
+        'task': 'app.tasks.periodic_check',
+        'schedule': 60.0,  # A cada 1 minuto
+        'options': {'queue': 'periodic'}  # Envia para fila específica
+    },
+}
+
 async def wrap_db_ctx(func, *args, **kwargs) -> None:
     try:
         await init_db()
