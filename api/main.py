@@ -5,7 +5,7 @@ from app.config import init_db,close_db
 from app.controllers.auth_controller import AuthController
 from app.controllers.collection_controller import CollectionController
 from app.controllers.search_controller import SearchController
-from app.controllers.file_controller import FileController
+from app.controllers.photo_controller import PhotoController
 from app.utils import setup_logging
 
 # Usando o lifespan para gerenciar eventos de startup e shutdown
@@ -35,5 +35,5 @@ app.add_middleware(
 # Incluindo as rotas
 app.include_router(AuthController().router)
 app.include_router(CollectionController().router)
-app.include_router(FileController().router)
+app.include_router(PhotoController().router)
 app.include_router(SearchController().router)

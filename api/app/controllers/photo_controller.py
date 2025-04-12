@@ -1,4 +1,4 @@
-from app.models.file import File
+from app.models.photo import Photo
 from app.controllers.base_controller import BaseController
 from PIL import Image
 from io import BytesIO
@@ -6,9 +6,9 @@ from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from pathlib import Path
 
-class FileController(BaseController):
-    model = File
-    prefix = "files"
+class PhotoController(BaseController):
+    model = Photo
+    prefix = "photos"
 
     def __init__(self):
         super().__init__()
