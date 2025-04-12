@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   api:
     build: ./api
@@ -15,10 +17,10 @@ services:
       - DATABASE_POSTGRES_URL=postgres://postgres:password@postgres:5432/facefinder
       - DATABASE_REDIS_URL=redis://redis:6379/0
   
-  celery:
+  celery_worker:
     build: ./api
-    container_name: facefinder_celery
-    command: celery -A app.celery_worker.celery_app worker --loglevel=info
+    container_name: facefinder_celery_worker
+    command: celery -A app.celery_worker.celery_app worker --loglevel=info -Q immediate,periodic
     volumes:
       - ./api:/app
     depends_on:
@@ -26,7 +28,21 @@ services:
       - postgres
     restart: unless-stopped
     environment:
-      - SESSION_EXPIRE_MINUTES=240
+      - DATABASE_POSTGRES_URL=postgres://postgres:password@postgres:5432/facefinder
+      - DATABASE_REDIS_URL=redis://redis:6379/0
+
+  celery_beat:
+    build: ./api
+    container_name: facefinder_celery_beat
+    command: celery -A app.celery_worker.celery_app beat --loglevel=info
+    volumes:
+      - ./api:/app
+    depends_on:
+      - redis
+      - postgres
+      - celery_worker
+    restart: unless-stopped
+    environment:
       - DATABASE_POSTGRES_URL=postgres://postgres:password@postgres:5432/facefinder
       - DATABASE_REDIS_URL=redis://redis:6379/0
 
