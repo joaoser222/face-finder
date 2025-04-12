@@ -108,3 +108,16 @@ def setup_logging():
     except Exception as e:
         logger_error("setup_logging", e)
 
+class QueryBuilder:
+    def __init__(self):
+        self.query = ""
+    
+    def apply(self, clause, *args,separator=", "):
+        self.query += f"{clause} {separator.join(args)} "
+        return self
+
+    def build(self):
+        return self.query.strip()
+
+
+    
