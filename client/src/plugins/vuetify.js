@@ -38,6 +38,8 @@ export default createVuetify({
       rounded: 'lg',
       variant: 'outlined',
       density: 'comfortable',
+      clearIcon: 'X',
+      clearable: true
     },
     VTextarea: {
       rounded: 'lg',
@@ -55,12 +57,15 @@ export default createVuetify({
       rounded: 'lg',
       variant: 'outlined',
       density: 'comfortable',
+      clearIcon: 'X',
+      clearable: true
     },
     VAutocomplete: {
       rounded: 'lg',
-      clearIcon: 'X',
       variant: 'outlined',
       density: 'comfortable',
+      clearIcon: 'X',
+      clearable: true
     },
     VListItem: {
       rounded: 'lg',
