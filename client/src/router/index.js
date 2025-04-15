@@ -28,16 +28,17 @@ const routes = [
       },
       {
         path: 'searches',
-        component: () => import('@/pages/Search.vue'),
+        component: () => import('@/pages/searches/Index.vue'),
+      },
+      {
+        path: 'searches/:id',
+        props: true,
+        component: () => import('@/pages/searches/Item.vue'),
       },
       {
         path: 'settings',
         component: () => import('@/pages/Setting.vue'),
-      },
-      {
-        path: 'collections/:id',
-        component: () => import('@/pages/Collection.vue'),
-      },
+      }
     ],
   },
 ] 
