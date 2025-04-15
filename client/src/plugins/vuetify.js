@@ -70,6 +70,11 @@ export default createVuetify({
     VListItem: {
       rounded: 'lg',
     },
+    VProgressCircular:{
+      size: '90',
+      color: 'primary',
+      indeterminate: true
+    },
     // Outros componentes que você queira arredondar
   },
   icons: {
