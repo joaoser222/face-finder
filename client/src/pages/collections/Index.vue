@@ -1,6 +1,6 @@
 <template>
   <div>
-    <base-page :no-items="noItems">
+    <base-page :no-items="noItems" @search="handleSearch">
       <template #title>
         Coleções
       </template>
@@ -54,11 +54,12 @@
           </template>
         </item-grid>
         <v-pagination
-          v-model="page"
+          v-model="items.page"
           :length="items.total_pages"
           :total-visible="5"
           v-if="items.data.length && items.total_pages > 1"
           class="my-4"
+          @update:modelValue="getItems"
         ></v-pagination>
       </template>
     </base-page>
@@ -91,8 +92,11 @@ export default {
     },
   },
   methods: {
-    async getItems() {
-      let data = await api.get(`/collections/list`);
+    handleSearch(search) {
+      this.getItems(1, search);
+    },
+    async getItems(page=1,search='') {
+      let data = await api.get(`/collections/list`, { params: { page, search } });
       this.items = {...this.items,...data};
     },
     async viewItem(item) {

@@ -1,6 +1,9 @@
 <template>
 <div>
-  <base-page :no-items="noPhotos">
+  <base-page 
+    :no-items="noPhotos" 
+    @search="handleSearch"
+  >
     <template #title>
       Coleção: {{ item.name }}
     </template>
@@ -20,7 +23,7 @@
       <item-grid :items="photos.data">
         <template #default="{ item }">
           <v-img
-            :src="`/api/files/thumbnail/${item.id}`"
+            :src="`/api/photos/thumbnail/${item.id}`"
             height="200px"
             class="align-end"
             cover
@@ -36,22 +39,50 @@
           </div>
         </template>
       </item-grid>
+      <v-pagination
+        v-model="photos.page"
+        :length="photos.total_pages"
+        :total-visible="5"
+        v-if="photos.data.length && photos.total_pages > 1"
+        class="my-4"
+        @update:modelValue="getPhotos"
+      ></v-pagination>
     </template>
   </base-page>
   <v-dialog v-model="dialogDetails" @hide="closeDetails()" width="800px">
-    <v-card>
+    <v-card v-if="Object.keys(selectedPhoto).length">
       <v-card-title>Detalhes da foto {{ selectedPhoto.original_name }}</v-card-title>
       <v-card-text>
         <v-img
-          :src="`/api/files/scaled/${selectedPhoto.id}`"
+          :src="`/api/photos/scaled/${selectedPhoto.id}`"
           width="100%"
           height="auto"
-          max-height="800px"
           class="align-end"
           cover
         >
         </v-img>
+        <div class="mt-8" v-if="selectedPhoto.faces.data.length">
+          <v-row>
+            <v-col cols="12" sm="6" v-for="face in selectedPhoto.faces.data" :key="face.id">
+              <v-card border height="100px" max-height="120px">
+                <div class="d-flex flex-row flex-no-wrap align-start justify-start">
+                  <v-img
+                    :src="`/api/photos/face-thumbnail/${face.id}`"
+                    style="width: auto;height: 100px;"
+                    position="left"
+                  ></v-img>
+                  <div class="flex-grow-1 text-subtitle-1 pa-3">
+                    <div class="font-weight-bold">Face #{{ face.id }}</div>
+                    <div class="text-caption">Idade: {{ face.data.age }}</div>
+                    <div class="text-caption">Gênero: {{ face.data.gender ? 'Masculino' : 'Feminino' }}</div>
+                  </div>
+                </div>
+              </v-card>
+            </v-col>
+          </v-row>
+        </div>
       </v-card-text>
+      
       <v-card-actions>
         <v-spacer></v-spacer>
         <v-btn color="primary" @click="closeDetails()">Fechar</v-btn>
@@ -92,9 +123,10 @@ export default {
     }
   },
   methods: {
-    showDetails(item) {
-      this.selectedPhoto = item;
+    async showDetails(item) {
+      this.selectedPhoto = {...item};
       this.dialogDetails = true;
+      this.getFaces();
     },
     closeDetails() {
       this.dialogDetails = false;
@@ -104,16 +136,32 @@ export default {
       this.item = await api.get(`collections/show/${this.id}`);
       this.getPhotos();
     },
-    async getPhotos() {
+    handleSearch(search) {
+      this.getPhotos(1, search);
+    },
+    async getPhotos(page=1,search='') {
       /**
        * Carrega a lista de itens do endpoint
       */
       try {
-        const data = await api.get(`collections/show-photos/${this.id}`)
+        const data = await api.get(`/photos/by-owner/collection/${this.id}`, { params: { page, search } })
         this.photos = {...data};
       } catch (error) {
         console.error('Error fetching photos:', error)
         this.$emit('error', error)
+      }
+    },
+    async getFaces() {
+      /**
+       * Carrega a lista de faces do endpoint
+      */
+      try {
+        this.selectedPhoto.faces = {loading: true, data: []};
+        this.selectedPhoto.faces.data = await api.get(`/photos/faces/${this.selectedPhoto.id}`)
+      } catch (error) {
+        console.error('Error fetching faces:', error)
+      } finally {
+        this.selectedPhoto.faces.loading = false;
       }
     },
     async deletePhoto(item) {
@@ -126,7 +174,7 @@ export default {
           text: 'Sim, Remover'
         },
         onConfirm: async () => {
-          await api.delete(`/collections/delete-photo/${this.id}/${item.id}`);
+          await api.delete(`/photos/delete/${item.id}`);
           this.getPhotos();
         }
       });

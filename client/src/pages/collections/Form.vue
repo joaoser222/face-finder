@@ -23,10 +23,9 @@
         ]"
         dense
         class="mb-3"
+        persistent-hint
+        :hint="'**O arquivo deve estar no formato ZIP e conter apenas imagens no formato PNG ou JPG. Arquivos em outros formatos serão ignorados.'"
       ></v-file-input>
-      <div class="text-caption">
-        **O arquivo deve estar no formato ZIP e conter apenas imagens no formato PNG ou JPG. Arquivos em outros formatos serão ignorados.
-      </div>
     </template>
   </dialog-form>
 </template>
@@ -48,7 +47,7 @@ export default {
       required: false
     }
   },
-  inject: ['dialog'],
+  inject: ['dialog','loadingDialog'],
   components: {DialogForm},
   data: function(){
     return {
@@ -71,6 +70,7 @@ export default {
   },
   methods: {
     async save(data) {
+      this.loadingDialog.show('Salvando Coleção');
       try {
         if(this.id) {
           await api.put(`/collections/update/${this.id}`, data, {headers: {'Content-Type': 'multipart/form-data'}});
@@ -80,6 +80,8 @@ export default {
         this.$emit('success');
       } catch (error) {
         this.dialog({title: "Erro!", type: 'error',message: error});
+      } finally {
+        this.loadingDialog.hide();
       }
     }
   }
