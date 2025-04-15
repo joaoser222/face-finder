@@ -11,7 +11,7 @@ class ViewController(BaseController):
     model = None
     prefix = ""
     current_user = None  # Atributo para armazenar o usuário autenticado
-    search_field = ""
+    search_field = "name"
 
     def __init__(self):
         super().__init__()
@@ -50,7 +50,7 @@ class ViewController(BaseController):
             raise
 
 
-    async def get_all(self,search: str = Query(None),page: int = Query(1, ge=1)):
+    async def get_all(self,search: str = Query(''),page: int = Query(1, ge=1)):
         """
         Retorna todos os registros da model
         """
