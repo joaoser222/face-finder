@@ -1,21 +1,17 @@
 from celery import Celery
-import time
 import os
 import zipfile
 from app.models.archive import Archive
 from app.models.photo import Photo
-from app.models.collection import Collection
-from app.models.queue import Queue
-from app.models.face import Face
+from app.models.collection import Collection, CollectionStatus
+from app.models.job import Job, JobStatus
 from app.utils import logger_info, logger_error
 import shutil
 import asyncio
 from app.config import init_db, close_db
 import redis
-from tortoise.transactions import in_transaction
-import cv2
-from insightface.app import FaceAnalysis
 from concurrent.futures import ThreadPoolExecutor
+from app.recognition import Recognition
 
 # Configuração do Redis
 redis_client = redis.from_url(os.getenv("DATABASE_REDIS_URL"))
@@ -38,21 +34,13 @@ celery_app.conf.update(
     task_reject_on_worker_lost=True,
 )
 
-# Configurações do Beat (agendador)
-celery_app.conf.beat_schedule = {
-    'periodic_check': {
-        'task': 'app.tasks.periodic_check',
-        'schedule': 60.0,  # A cada 1 minuto
-        'options': {'queue': 'periodic'}  # Envia para fila específica
-    },
-}
-
-async def wrap_db_ctx(func, *args, **kwargs) -> None:
+async def wrap_db_ctx(func, *args, **kwargs):
     try:
         await init_db()
-        await func(*args, **kwargs)
+        result = await func(*args, **kwargs)
+        return result
     except Exception as e:
-        logger_error(__name__, f"Erro no contexto do DB: {str(e)}")
+        logger_error(__name__, e)
         raise
     finally:
         await close_db()
@@ -60,221 +48,171 @@ async def wrap_db_ctx(func, *args, **kwargs) -> None:
 def async_to_sync(func, *args, **kwargs) -> None:
     asyncio.run(wrap_db_ctx(func, *args, **kwargs))
 
-async def process_queue(queue_id=None):
+def check_job(job_id):
+    job = Job.get_or_none(id=job_id)
+    if not job:
+        raise Exception("Job não encontrado")
+    return job
+
+@celery_app.task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60
+)
+def check_downloaded_model(self):
     """
-    Processa uma queue
-    Args:
-        queue_id (int,optional): ID da queue
+    Verifica se o modelo de reconhecimento foi baixado
     """
     try:
-        async with in_transaction():
-            if(queue_id is None):
-                queue = await Queue.filter(status=0).limit(1).select_for_update().get()
-            else:
-                queue = await Queue.select_for_update().get_or_none(id=queue_id)
-
-            if not queue:
-                raise Exception("Queue não encontrada")
+        async def __action__():
+            try:
+                task = None
+                if not Recognition.is_model_downloaded():
+                    task = await Job.create(
+                        process_type="download_recognition_model",
+                        owner_type="system",
+                        owner_id=1
+                    )
+                    await Recognition.download_model()
+                    await task.delete()
+            except Exception as e:
+                logger_error(__name__, e)
+                if task:
+                    task.status = JobStatus.FAILED
+                    await task.save()
+                raise
         
-            # Atualiza status para "processando"
-            queue.status = 1
-            await queue.save()
-            
-            task_func = globals().get(queue.process_type)
-            if not task_func:
-                raise Exception(f"Tipo de processo inválido: {queue.process_type}")
-            
-            await task_func(queue)
-            
-            # Atualiza status para "concluído"
-            queue.status = 2
-            await queue.save()
+        async_to_sync(__action__)
     except Exception as e:
-        queue.status = -1
-        await queue.save()
-        logger_error(__name__, f"Erro ao processar queue {queue_id}: {str(e)}")
-        raise
+        self.retry(exc=e)
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
-def send_queue(self, queue_id):
-    try:
-        async_to_sync(process_queue, queue_id)
-        
-    except Exception as exc:
-        logger_error(__name__, f"Erro ao processar queue {queue_id}: {str(exc)}")
-        try:
-            self.retry(exc=exc)
-        except self.MaxRetriesExceededError:
-            async_to_sync(
-                lambda: Queue.filter(id=queue_id).update(status=-1, error_message=str(exc))
-            )
-        raise
-
-
-@celery_app.task
-def periodic_check():
-    """Verificação periódica a cada minuto"""
-    try:
-        async_to_sync(process_queue)
-    except Exception as e:
-        logger_error(__name__, f"Erro na verificação periódica: {str(e)}")
-
-async def collection_uncompression(queue):
+@celery_app.task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60
+)
+async def collection_uncompression(self, job_id):
     """
     Descompacta um arquivo e move as imagens para o diretório de imagens da coleção.
     """
-    temp_dir = f'/app/files/temp/{queue.owner_id}'
     try:
-        async with in_transaction():
-            archive = await Archive.get_or_none(id=queue.owner_id).select_related('owner')
-            if not archive or not archive.owner:
-                raise Exception("Arquivo ou coleção não encontrada")
+        job = check_job(job_id)
+        temp_dir = f'/app/files/temp/{job.owner_id}'
+        archive = await Archive.get_or_none(id=job.owner_id)
+        if not archive:
+            raise Exception("Arquivo não encontrado")
+        
+        collection = await Collection.get_or_none(id=archive.owner_id)
+        if not collection:
+            raise Exception("Coleção não encontrada")
+
+        os.makedirs(temp_dir, exist_ok=True)
+        added_photos_counter = 0
+
+        with zipfile.ZipFile(archive.file_path, 'r') as zip_ref:
+            zip_ref.extractall(temp_dir)
+
+        for item in os.scandir(temp_dir):
+            if not item.is_file():
+                continue
+                
+            _, ext = os.path.splitext(item.name.lower())
+            if ext not in ['.jpg', '.jpeg', '.png']:
+                os.remove(item.path)
+                continue
             
-            collection = archive.owner
-            os.makedirs(temp_dir, exist_ok=True)
-            added_photos_counter = 0
+            # Processa cada foto
+            photo = await Photo.create_file(collection, item.name, item.stat().st_size)
+            if not collection.thumbnail_photo:
+                collection.thumbnail_photo = photo
+            
+            shutil.move(item.path, photo.file_path)
+            added_photos_counter += 1
 
-            with zipfile.ZipFile(archive.file_path, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
+        # Atualiza coleção
+        collection.status = CollectionStatus.INDEXING
+        collection.photo_quantity = added_photos_counter
+        await collection.save()
 
-            for item in os.scandir(temp_dir):
-                if not item.is_file():
-                    continue
-                    
-                _, ext = os.path.splitext(item.name.lower())
-                if ext not in ['.jpg', '.jpeg', '.png']:
-                    os.remove(item.path)
-                    continue
-                
-                # Processa cada foto
-                photo = await Photo.create_file(collection, item.name, item.stat().st_size)
-                if not collection.thumbnail_file:
-                    collection.thumbnail_file = photo
-                
-                shutil.move(item.path, photo.file_path)
-                added_photos_counter += 1
+        # Cria novo job para indexação
+        indexation_job = await Job.create(
+            process_type="collection_indexation",
+            owner_type="collection",
+            owner_id=collection.id
+        )
 
-            # Atualiza coleção
-            collection.status = 1
-            collection.photo_quantity = added_photos_counter
-            await collection.save()
+        collection_indexation.delay(indexation_job.id)
 
-            # Cria nova queue para indexação
-            await Queue.create(
-                user_id=queue.user_id,
-                process_type="collection_indexation",
-                owner_type="Collection",
-                owner_id=collection.id
-            )
+        # Limpeza final
+        os.remove(archive.file_path)
+        await archive.delete()
+        shutil.rmtree(temp_dir)
+        await job.delete()
 
-            # Limpeza final
-            os.remove(archive.file_path)
-            await archive.delete()
-            shutil.rmtree(temp_dir)
-            await queue.delete()
-
-            logger_info(__name__, f'{added_photos_counter} foto(s) adicionada(s) à coleção {collection.id}')
+        logger_info(__name__, f'{added_photos_counter} foto(s) adicionada(s) à coleção {collection.id}')
 
     except Exception as e:
-        logger_error(__name__, f"Erro ao descompactar: {str(e)}")
-        if os.path.exists(temp_dir):
+        logger_error(__name__, e)
+        if temp_dir and os.path.exists(temp_dir):
             shutil.rmtree(temp_dir, ignore_errors=True)
         raise
 
-async def __process_single_photo(photo, app, collection):
-    """
-    Processa uma única foto de forma assíncrona dentro do thread pool
-    """
-    try:
-        # Carregar imagem
-        img = cv2.imread(photo.file_path)
-        if img is None:
-            logger_error(__name__, f'Não foi possível carregar a imagem: {photo.file_path}')
-            return photo  # Retorna a foto não modificada
-
-        # Detectar faces (esta parte roda na thread do pool)
-        faces = app.get(img)
-
-        # Processar faces detectadas
-        for face in faces:
-            faces_json = {
-                "bbox": face.bbox.tolist(),
-                "landmark": face.landmark.tolist() if face.landmark is not None else None,
-                "gender": int(face.gender) if hasattr(face, "gender") else None,
-                "age": int(face.age) if hasattr(face, "age") else None,
-                "embedding": face.embedding.tolist() if hasattr(face, "embedding") else None,
-                "score": float(face.det_score),
-            }
-
-            # Salvar face no banco de dados (parte assíncrona)
-            await Face.create(
-                data=faces_json,
-                user_id=photo.user_id,
-                photo_id=photo.id,
-                collection_id=collection.id
-            )
-            photo.face_count += 1
-
-        photo.is_indexed = True
-        await photo.save()
-        return photo
-        
-    except Exception as e:
-        logger_error(__name__, f"Erro ao processar foto {photo.id}: {str(e)}")
-        return photo  # Retorna a foto mesmo com erro para continuar o processamento
-
-async def collection_indexation(queue):
+@celery_app.task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60,
+)
+async def collection_indexation(self, job_id):
     """
     Indexa as imagens de uma coleção usando processamento paralelo
     """
     try:
-        async with in_transaction():
-            collection = await Collection.get_or_none(id=queue.owner_id)
+        job = check_job(job_id)
+        collection = await Collection.get_or_none(id=job.owner_id)
 
-            if not collection:
-                await queue.delete()
-                logger_error(__name__, f'Coleção {queue.owner_id} não encontrada')
-                return 
-            
-            # Atualiza status da coleção para "processando"
-            collection.status = 2
-            await collection.save()
-            
-            # Obtém todas as fotos da coleção
-            photos = await Photo.filter(collection=collection, is_indexed=False).all()
-            
-            # Inicializa o FaceAnalysis uma única vez (será reutilizado nas threads)
-            app = FaceAnalysis(name="buffalo_l")
-            app.prepare(ctx_id=0, det_size=(640, 640))
+        if not collection:
+            await job.delete()
+            logger_info(__name__, f'Coleção {job.owner_id} não encontrada')
+            return
+        
+        # Obtém todas as fotos da coleção
+        photos = await Photo.filter(
+            owner_id=collection.id,
+            owner_type="collection",
+            is_indexed=False
+        ).all()
+        
+        # Inicializa o FaceAnalysis uma única vez (será reutilizado nas threads)
+        recognition = await Recognition.create()
 
-            # Configuração do ThreadPool
-            max_workers = min(4, len(photos))  # Limita a 4 threads ou menos se tiver poucas fotos
-            loop = asyncio.get_running_loop()
+        # Configuração do ThreadPool
+        max_workers = min(4, len(photos))  # Limita a 4 threads ou menos se tiver poucas fotos
+        loop = asyncio.get_running_loop()
+        
+        # Processa as fotos em paralelo
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            tasks = []
+            for photo in photos:
+                # Submete cada foto para processamento no thread pool
+                task = loop.run_in_executor(
+                    executor,
+                    lambda p=photo: asyncio.run_coroutine_threadsafe(
+                        recognition.process_single_photo(p),
+                        loop
+                    ).result()
+                )
+                tasks.append(task)
             
-            # Processa as fotos em paralelo
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                tasks = []
-                for photo in photos:
-                    # Submete cada foto para processamento no thread pool
-                    task = loop.run_in_executor(
-                        executor,
-                        lambda p=photo: asyncio.run_coroutine_threadsafe(
-                            __process_single_photo(p, app, collection),
-                            loop
-                        ).result()
-                    )
-                    tasks.append(task)
-                
-                # Aguarda a conclusão de todas as tarefas
-                await asyncio.gather(*tasks)
-            
-            # Atualiza coleção para "concluído"
-            collection.status = 1
-            await collection.save()
-            
-            await queue.delete()
-            logger_info(__name__, f'Imagens da coleção {collection.id} indexadas com sucesso')
-            
+            # Aguarda a conclusão de todas as tarefas
+            await asyncio.gather(*tasks)
+        
+        # Atualiza coleção para "concluído"
+        collection.status = CollectionStatus.FINISHED
+        await collection.save()
+        
+        await job.delete()
+        logger_info(__name__, f'Imagens da coleção {collection.id} indexadas com sucesso')
+        
     except Exception as e:
-        logger_error(__name__, f"Erro ao indexar coleção: {str(e)}")
+        logger_error(__name__,e)
         raise
