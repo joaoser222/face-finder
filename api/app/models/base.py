@@ -1,6 +1,5 @@
 from tortoise import fields, models
 from typing import Any
-from app.utils import generate_unique_filename
 import os
 import mimetypes
 
@@ -45,6 +44,7 @@ class FileModel(PolymorphicModel):
     ) -> 'FileModel':
         """Cria um novo arquivo associado a uma entidade dona."""
         try:
+            from app.utils import generate_unique_filename
             owner_type = owner.__class__.__name__.lower()
             unique_filename = generate_unique_filename(file_name)
             mime_type, _ = mimetypes.guess_type(unique_filename)
