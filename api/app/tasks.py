@@ -11,7 +11,7 @@ import asyncio
 from app.config import init_db, close_db
 import redis
 from concurrent.futures import ThreadPoolExecutor
-from app.recognition import Recognition
+from app.services.recognition import Recognition
 
 # Configuração do Redis
 redis_client = redis.from_url(os.getenv("DATABASE_REDIS_URL"))
