@@ -1,7 +1,7 @@
 <template>
   <v-container fluid class="fill-height bg-grey-lighten-4">
     <v-row justify="center" align="center">
-      <v-col cols="12" sm="8" md="4">
+      <v-col cols="12" sm="8" md="6" lg="4">
         <v-card class="pa-8">
           <!-- Logo -->
           <div class="d-flex flex-column align-center mb-6">
@@ -180,7 +180,7 @@ export default {
         const data = await api.post(postData.url,postData.data);
         authStore.setAuth(data.token, data.expires_at);
         
-        this.$router.push('/dashboard');
+        this.$router.push('/');
 
       } catch (error) {
         console.error('Error:', error);
