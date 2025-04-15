@@ -10,16 +10,16 @@
     </div>
     <v-card class="w-100 pa-3 flex-grow-1">
       <v-card-text>
-        <div class="d-flex justify-space-between align-center mb-4" v-if="showSearch && !noItems">
+        <div class="d-flex justify-space-between align-center mb-4" v-if="showSearch && (!noItems || search)">
           <div class="pr-2 w-100">
             <v-text-field 
               v-model="search" 
-              label="Pesquisar" 
+              label="Pesquisar"
               color="primary" 
               hide-details 
               single-line 
               density="compact"
-              @keypress.enter="handleSearch"
+              @blur="handleSearch"
             >
             <template #append-inner>
               <v-btn 
@@ -38,8 +38,28 @@
 
         <slot name="default"></slot>
 
+        <v-empty-state v-if="search && noItems">
+          <template v-slot:media>
+            <div class="d-flex flex-column justify-center align-center">
+              <v-icon icon="Search" size="100" color="primary" style="stroke-width: 1.0px"></v-icon>
+            </div>
+          </template>
+
+          <template v-slot:title>
+            <div class="text-h6 mt-8">
+              Nenhum resultado encontrado
+            </div>
+          </template>
+
+          <template v-slot:text>
+            <div class="text-caption">
+              Não há itens correspondentes à sua pesquisa
+            </div>
+          </template>
+        </v-empty-state>
+
         <!-- Estado vazio -->
-        <v-empty-state v-if="noItems">
+        <v-empty-state v-else-if="noItems">
           <template v-slot:media>
             <div class="d-flex flex-column justify-center align-center">
               <slot name="no-items-banner"></slot>
@@ -68,10 +88,6 @@ export default {
   name:'BasePage',
   props:{
     showSearch: {
-      type: Boolean,
-      default: true
-    },
-    showCreate: {
       type: Boolean,
       default: true
     },
