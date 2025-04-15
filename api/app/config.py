@@ -21,7 +21,7 @@ TORTOISE_ORM = {
                 "app.models.search", 
                 "app.models.search_face",
                 "app.models.session",
-                "app.models.queue"
+                "app.models.job"
             ],
             "default_connection": "default",
         }
