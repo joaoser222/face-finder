@@ -1,9 +1,12 @@
 import asyncio
 from pathlib import Path
+from api.app.models.search import Search
 from insightface.app import FaceAnalysis
 from PIL import Image
 import numpy as np
 from app.models.face import Face
+from app.models.search_face import SearchFace
+from app.models.search import Search
 from app.utils import logger_info, logger_error
 import os
 class Recognition:
@@ -47,6 +50,33 @@ class Recognition:
             await asyncio.to_thread(
                 lambda: app.prepare(ctx_id=0, det_size=(640, 640))
             )
+        except Exception as e:
+            logger_error(__name__, e)
+            raise
+    
+    async def compare_faces(self, search: Search, face: Face):
+        """
+        Compara duas faces e cria um registro de face na busca caso o nível de similaridade 
+        seja maior ou igual ao nível de tolerância
+        """
+        try:
+            reference_face = await Face.filter(
+                owner_id=search.id,
+                owner_type="search"
+            ).get_or_none()
+            similarity = np.dot(reference_face.data['embedding'], face.data['embedding']) / (
+                np.linalg.norm(reference_face.data['embedding']) * np.linalg.norm(face.data['embedding'])
+            )
+
+            if similarity >= search.tolerance_level:
+                has_face = await SearchFace.filter(search_id=search.id, face_id=face.id).exists()
+                if not has_face:
+                    face = await SearchFace.create(
+                        search_id=search.id,
+                        face_id=face.id,
+                        user_id=search.user_id
+                    )
+                    return face
         except Exception as e:
             logger_error(__name__, e)
             raise
