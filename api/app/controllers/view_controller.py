@@ -15,16 +15,13 @@ class ViewController(BaseController):
 
     def __init__(self):
         super().__init__()
-
-        # Adiciona uma dependência global para o roteador
-        self.router.dependencies.append(Depends(self.set_current_user))
-
+        
         # Define as rotas
-        self.router.add_api_route("/list", self.get_all, methods=["GET"])
-        self.router.add_api_route("/show/{id}", self.show, methods=["GET"])
-        self.router.add_api_route("/create", self.create, methods=["POST"])
-        self.router.add_api_route("/update/{id}", self.update, methods=["PUT"])
-        self.router.add_api_route("/delete/{id}", self.delete, methods=["DELETE"])
+        self.router.add_api_route("/list", self.get_all, methods=["GET"], dependencies=[Depends(self.set_current_user)])
+        self.router.add_api_route("/show/{id}", self.show, methods=["GET"], dependencies=[Depends(self.set_current_user)])
+        self.router.add_api_route("/create", self.create, methods=["POST"], dependencies=[Depends(self.set_current_user)])
+        self.router.add_api_route("/update/{id}", self.update, methods=["PUT"], dependencies=[Depends(self.set_current_user)])
+        self.router.add_api_route("/delete/{id}", self.delete, methods=["DELETE"], dependencies=[Depends(self.set_current_user)])
     
     def get_model_by_user(self):
         """
