@@ -56,11 +56,7 @@ export default {
     return {
       dialogStatus: false,
       formStatus: false,
-      form: {},
-      item: {
-        name: '',
-        file: null
-      }
+      form: {}
     }
   },
   computed: {
@@ -86,6 +82,7 @@ export default {
     },
     close() {
       this.dialogStatus = false;
+      this.form = {};
       this.$emit('close');
     },
     getFormData(){
