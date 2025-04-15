@@ -5,6 +5,10 @@ from app.models.archive import Archive
 from app.models.photo import Photo
 from app.models.collection import Collection, CollectionStatus
 from app.models.job import Job, JobStatus
+from app.models.face import Face
+from app.models.search import Search
+from app.models.search_face import SearchFace
+
 from app.utils import logger_info, logger_error
 import shutil
 import asyncio
@@ -198,6 +202,66 @@ async def collection_indexation(self, job_id):
                     executor,
                     lambda p=photo: asyncio.run_coroutine_threadsafe(
                         recognition.process_single_photo(p),
+                        loop
+                    ).result()
+                )
+                tasks.append(task)
+            
+            # Aguarda a conclusão de todas as tarefas
+            await asyncio.gather(*tasks)
+        
+        # Atualiza coleção para "concluído"
+        collection.status = CollectionStatus.FINISHED
+        await collection.save()
+        
+        await job.delete()
+        logger_info(__name__, f'Imagens da coleção {collection.id} indexadas com sucesso')
+        
+    except Exception as e:
+        logger_error(__name__,e)
+        raise
+
+@celery_app.task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60,
+)
+async def search_faces(self, job_id):
+    """
+    Busca as faces nas coleções
+    """
+    try:
+        job = check_job(job_id)
+        search = await Search.get_or_none(id=job.owner_id)
+
+        if not search:
+            await job.delete()
+            logger_info(__name__, f'Pesquisa {job.owner_id} não encontrada')
+            return
+        
+        # Obtém todas as faces das coleções pertencentes a pesquisa
+        faces_to_search = await Face.filter(
+            owner_id__in=search.collections,
+            owner_type="collection",
+            is_indexed=False
+        ).all()
+        
+        # Inicializa o FaceAnalysis uma única vez (será reutilizado nas threads)
+        recognition = await Recognition.create()
+
+        # Configuração do ThreadPool
+        max_workers = min(8, len(faces_to_search))  # Limita a 8 threads ou menos se tiver poucas faces
+        loop = asyncio.get_running_loop()
+        
+        # Processa as faces em paralelo
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            tasks = []
+            for face in faces_to_search:
+                # Submete cada face para processamento no thread pool
+                task = loop.run_in_executor(
+                    executor,
+                    lambda f=face, s=search: asyncio.run_coroutine_threadsafe(
+                        recognition.compare_faces(s, f),
                         loop
                     ).result()
                 )
