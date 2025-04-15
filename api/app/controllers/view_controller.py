@@ -91,15 +91,14 @@ class ViewController(BaseController):
         Returns:
             Record: Registro criado
         """
-        async with transactions.in_transaction() as transaction:
-            try:
+        try:
+            async with transactions.in_transaction():
                 params["user_id"] = self.current_user.id
                 record = await self.model.create(**params)
-                return record
-            except Exception as e:
-                await transaction.rollback()
-                logger_error(__name__,e)
-                raise HTTPException(status_code=400, detail=str(e))
+            return record
+        except Exception as e:
+            logger_error(__name__,e)
+            raise HTTPException(status_code=400, detail=str(e))
     
     async def update(self, id: int, params: dict):
         """
@@ -111,17 +110,16 @@ class ViewController(BaseController):
         Returns:
             Record: Registro atualizado
         """
-        async with transactions.in_transaction() as transaction:
-            try:
+        try:
+            async with transactions.in_transaction():
                 record = await self.get_model_by_user().get_or_none(id=id)
                 if not record:
                     raise HTTPException(status_code=404, detail="Registro não encontrado")
                 await record.update(**params)
-                return record
-            except Exception as e:
-                await transaction.rollback()
-                logger_error(__name__,e)
-                raise HTTPException(status_code=400, detail=str(e))
+            return record
+        except Exception as e:
+            logger_error(__name__,e)
+            raise HTTPException(status_code=400, detail=str(e))
 
     async def delete(self, id: int):
         """
@@ -130,24 +128,23 @@ class ViewController(BaseController):
         Args:
             id (int): Id do registro
         """
-        async with transactions.in_transaction() as transaction:
-            try:
+        try:
+            async with transactions.in_transaction():
                 record = await self.get_model_by_user().get_or_none(id=id)
                 model_name = record.__class__.__name__.lower()
                 model_folder = f"/app/files/{model_name}/{record.id}"
                 if not record:
                     raise HTTPException(status_code=404, detail="Registro não encontrado")
                 
-                # Remove todos os arquivos do diretório local
+                # Remove todos os arquivos do diretório local caso existam
                 if os.path.exists(model_folder):
                     shutil.rmtree(model_folder)
 
                 await record.delete()
-                return JSONResponse(content={})
-            except Exception as e:
-                await transaction.rollback()
-                logger_error(__name__,e)
-                raise HTTPException(400, str(e))
+            return JSONResponse(content={})
+        except Exception as e:
+            logger_error(__name__,e)
+            raise HTTPException(400, str(e))
     
     async def process_uploaded_file(self, file: UploadFile,file_model: Any, owner: Any):
         """
@@ -159,8 +156,8 @@ class ViewController(BaseController):
         Returns:
             FileModel: Arquivo processado
         """
-        async with transactions.in_transaction() as transaction:
-            try:
+        try:
+            async with transactions.in_transaction():
                 file_record = await file_model.create_file(owner, file.filename,file.size)
 
                 # Cria a estrutura de diretórios se não existir
@@ -171,8 +168,7 @@ class ViewController(BaseController):
                 with open(file_record.file_path, "wb") as buffer:
                     shutil.copyfileobj(file.file, buffer)
                 
-                return file_record
-            except Exception as e:
-                await transaction.rollback()
-                logger_error(__name__,e)
-                raise
+            return file_record
+        except Exception as e:
+            logger_error(__name__,e)
+            raise
