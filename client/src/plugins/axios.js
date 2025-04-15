@@ -3,7 +3,6 @@ import axios from 'axios'
 // Criando uma instância do axios com configurações personalizadas
 const api = axios.create({
   baseURL: '/api', // Adiciona o prefixo /api a todas as requisições
-  timeout: 10000, // 10 segundos
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
