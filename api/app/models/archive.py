@@ -11,7 +11,7 @@ class Archive(FileModel):
     extension_type = fields.CharField(max_length=100)
     mime_type = fields.CharField(max_length=100)
     size = fields.IntField()  # Tamanho em bytes
-    user = fields.ForeignKeyField('models.User', related_name='archives')
+    user = fields.ForeignKeyField('models.User', related_name='archives',null=True)
 
     class Meta:
         table = "archives"
