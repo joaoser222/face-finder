@@ -6,7 +6,7 @@ from app.models.photo import Photo
 from app.models.collection import Collection, CollectionStatus
 from app.models.job import Job, JobStatus
 from app.models.face import Face
-from app.models.search import Search
+from app.models.search import Search,SearchStatus
 from app.models.search_face import SearchFace
 
 from app.utils import logger_info, logger_error
@@ -69,9 +69,9 @@ def retry_failed_tasks(self):
                 jobs = await Job.filter(status=JobStatus.FAILED).limit(5).all()
                 for job in jobs:
                     job.status = JobStatus.IN_PROGRESS
+                    await job.save()
 
                     globals()[job.process_type].delay(job.id)
-                    await job.save()
             except Exception as e:
                 logger_error(__name__, e)
                 raise
@@ -256,19 +256,25 @@ def search_faces(self, job_id):
             try:
                 job = await check_job(job_id)
                 search = await Search.get_or_none(id=job.owner_id)
+                search.status = SearchStatus.PROCESSING
+                await search.save()
 
                 if not search:
                     await job.delete()
                     logger_info(__name__, f'Pesquisa {job.owner_id} não encontrada')
                     return
-        
-                # Obtém todas as faces das coleções pertencentes a pesquisa
-                faces_to_search = await Face.filter(
+                
+                faces_to_search = []
+                photos = await Photo.filter(
                     owner_id__in=search.collections,
                     owner_type="collection",
-                    is_indexed=False
-                ).all()
-        
+                    is_indexed=True
+                ).prefetch_related('faces').only('id')
+                
+                for photo in photos:
+                    for face in photo.faces:
+                        faces_to_search.append(face)
+
                 # Inicializa o FaceAnalysis uma única vez (será reutilizado nas threads)
                 recognition = await Recognition.create()
 
@@ -294,11 +300,11 @@ def search_faces(self, job_id):
                     await asyncio.gather(*tasks)
                 
                 # Atualiza coleção para "concluído"
-                collection.status = CollectionStatus.FINISHED
-                await collection.save()
+                search.status = SearchStatus.FINISHED
+                await search.save()
                 
                 await job.delete()
-                logger_info(__name__, f'Imagens da coleção {collection.id} indexadas com sucesso')
+                logger_info(__name__, f'Pesquisa {search.id} concluída')
             except Exception as e:
                 logger_error(__name__,e)
                 raise
