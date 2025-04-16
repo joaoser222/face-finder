@@ -87,7 +87,6 @@ export default {
     }
 
     const showDialog = (dialog) => {
-      console.log(dialog);
       dialogs.push({ ...dialog, isOpen: true });
     };
 
