@@ -58,11 +58,28 @@ def check_job(job_id):
         raise Exception("Job não encontrado")
     return job
 
-@celery_app.task(
-    bind=True,
-    max_retries=3,
-    default_retry_delay=60
-)
+@celery_app.task(bind=True,max_retries=0)
+def retry_failed_tasks(self):
+    """
+    Verifica e executa novamente tarefas com status FAILED
+    """
+    try:
+        async def __action__():
+            try:
+                jobs = await Job.filter(status=JobStatus.FAILED).limit(5).all()
+                for job in jobs:
+                    job.status = JobStatus.IN_PROGRESS
+
+                    globals()[job.process_type].delay(job.id)
+                    await job.save()
+            except Exception as e:
+                logger_error(__name__, e)
+                raise
+        
+        async_to_sync(__action__)
+    except Exception as e:
+        self.retry(exc=e)
+
 def check_downloaded_model(self):
     """
     Verifica se o modelo de reconhecimento foi baixado

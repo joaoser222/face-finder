@@ -8,11 +8,23 @@ from app.controllers.search_controller import SearchController
 from app.controllers.photo_controller import PhotoController
 from app.utils import setup_logging
 from app.tasks import check_downloaded_model
+import asyncio
+from app.tasks import retry_failed_tasks
+
+async def task_checker():
+    """
+    Verifica e executa novamente tarefas com status FAILED
+    """
+    while True:
+        retry_failed_tasks.delay()
+        await asyncio.sleep(120)  # 2 minutos
+
 # Usando o lifespan para gerenciar eventos de startup e shutdown
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
     await init_db()  # Inicializa o banco de dados
+    asyncio.create_task(task_checker()) # Cria uma tarefa assíncrona para verificar tarefas com status FAILED
     check_downloaded_model.delay()
     yield
     await close_db()  # Fecha as conexões com o banco de dados
