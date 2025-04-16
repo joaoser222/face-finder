@@ -4,6 +4,7 @@ from insightface.app import FaceAnalysis
 from PIL import Image
 import numpy as np
 from app.models.face import Face
+from app.models.photo import Photo
 from app.models.search_face import SearchFace
 from app.models.search import Search
 from app.utils import logger_info, logger_error
@@ -58,21 +59,24 @@ class Recognition:
             logger_error(__name__, e)
             raise
     
-    async def compare_faces(self, search: Search, face: Face):
+    async def compare_faces(self, search: Search, face: dict):
         """
         Compara duas faces e cria um registro de face na busca caso o nível de similaridade 
         seja maior ou igual ao nível de tolerância
         """
         try:
-            reference_face = await Face.filter(
+            [photo_search_id] = await Photo.filter(
                 owner_id=search.id,
                 owner_type="search"
-            ).get_or_none()
+            ).values_list('id', flat=True)
+
+            reference_face = await Face.filter(photo_id=photo_search_id).first()
+
             similarity = np.dot(reference_face.data['embedding'], face.data['embedding']) / (
                 np.linalg.norm(reference_face.data['embedding']) * np.linalg.norm(face.data['embedding'])
             )
 
-            if similarity >= search.tolerance_level:
+            if similarity >= float(search.tolerance_level*0.01):
                 has_face = await SearchFace.filter(search_id=search.id, face_id=face.id).exists()
                 if not has_face:
                     face = await SearchFace.create(
