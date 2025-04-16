@@ -1,6 +1,5 @@
 import asyncio
 from pathlib import Path
-from api.app.models.search import Search
 from insightface.app import FaceAnalysis
 from PIL import Image
 import numpy as np
