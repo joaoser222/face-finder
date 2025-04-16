@@ -20,7 +20,7 @@ services:
   celery_worker:
     build: ./api
     container_name: facefinder_celery_worker
-    command: celery -A app.celery_worker.celery_app worker --loglevel=info -Q immediate,periodic
+    command: celery -A app.celery_worker.celery_app worker
     volumes:
       - ./api:/app
     depends_on:
