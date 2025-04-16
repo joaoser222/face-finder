@@ -42,7 +42,7 @@ class SearchController(ViewController):
             
             job = await Job.create(
                 process_type="search_faces",
-                owner_type=record.__class__.__name__,
+                owner_type='search',
                 owner_id=record.id
             )
             

@@ -30,7 +30,7 @@ class CollectionController(ViewController):
             # Cria o job de descompactação
             job = await Job.create(
                 process_type="collection_uncompression",
-                owner_type=file_record.__class__.__name__,
+                owner_type='archive',
                 owner_id=file_record.id
             )
 
