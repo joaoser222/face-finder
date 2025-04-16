@@ -9,6 +9,9 @@ from app.models.search import Search
 from app.utils import logger_info, logger_error
 import os
 class Recognition:
+    model_path = '/app/files/system/insightface'
+    model_name = 'buffalo_l'
+
     def __init__(self, app):
         """
         Inicialização síncrona padrão.
@@ -17,38 +20,40 @@ class Recognition:
         self.app = app
 
     @classmethod
-    async def create(cls, model_name="buffalo_l"):
+    def get_face_analyzer(cls):
+        return FaceAnalysis(name=cls.model_name,root=cls.model_path)
+
+    @classmethod
+    async def create(cls):
         """
         Factory method assíncrono para criação da instância.
         Garante o download do modelo se necessário.
         """
-        app = FaceAnalysis(name=model_name)
+        app = cls.get_face_analyzer()
         app.prepare(ctx_id=0, det_size=(640, 640))
         
         return cls(app)
     
-    @staticmethod
-    def is_model_downloaded(model_name='buffalo_l'):
-        base_dir = os.path.expanduser('~/.insightface/models')
-        model_dir = os.path.join(base_dir, model_name)
+    @classmethod
+    def is_model_downloaded(cls):
+        model_dir = os.path.join(cls.model_path, 'models', cls.model_name)
         
         if not os.path.exists(model_dir):
             return False
 
         return True
 
-    @staticmethod
-    async def download_model(model_name="buffalo_l"):
+    @classmethod
+    def download_model(cls):
         """
         Factory method assíncrono para download do modelo.
         """
         try:
-            logger_info(__name__, f"Baixando modelo '{model_name}' para reconhecimento")
+            logger_info(__name__, f"Baixando modelo '{cls.model_name}' para reconhecimento")
+
             # Executa o prepare em uma thread separada (pois é uma operação bloqueante)
-            app = FaceAnalysis(name=model_name)
-            await asyncio.to_thread(
-                lambda: app.prepare(ctx_id=0, det_size=(640, 640))
-            )
+            app = cls.get_face_analyzer()
+            app.prepare(ctx_id=0, det_size=(640, 640))
         except Exception as e:
             logger_error(__name__, e)
             raise
