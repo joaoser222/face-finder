@@ -15,6 +15,27 @@ class Collection(BaseModel):
 
     class Meta:
         table = "collections"
+    
+    async def update_photo_data(self):
+        from .photo import Photo 
+        from app.utils import logger_error
+        try:
+            photo_quantity = await Photo.filter(owner_type='collection', owner_id=self.id).count()
+            self.photo_quantity = photo_quantity
+
+            if(photo_quantity==0):
+                self.delete()
+                return
+            
+            photo = await Photo.filter(owner_type='collection', owner_id=self.id).get_or_none()
+            
+            if photo is not None:
+                self.thumbnail_photo_id = photo.id
+            
+            await self.save()
+        except Exception as e:
+            logger_error(__name__,e)
+            raise
 
     def __str__(self):
         return self.name
