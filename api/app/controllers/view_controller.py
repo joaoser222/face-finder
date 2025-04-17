@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from app.utils import logger_info,logger_error
 from typing import Any
 import os
-from tortoise import transactions
+from tortoise import transactions,connections
 import shutil
 from .base_controller import BaseController
 
@@ -29,21 +29,44 @@ class ViewController(BaseController):
         """
         return self.model.filter(user_id=self.current_user.id)
     
-    async def query_paginator(self, query, page):
+    async def query_paginator(self,raw_query: str,page: int = 1,per_page: int = 24) -> dict:
         """
-        Retorna os registros da model com paginação
+        Realiza a paginação de uma raw SQL query usando Tortoise-ORM.
+        
+        Args:
+            raw_query: Query SQL bruta (sem LIMIT/OFFSET)
+            page: Número da página desejada (começa em 1)
+            per_page: Quantidade de itens por página
+        Returns:
+            dict: Objeto com os resultados paginados e metadados
         """
         try:
-            per_page = 24
-            total = await query.count()
-            items = await query.offset((page - 1) * per_page).limit(per_page)
+            # Calcular offset
+            offset = (page - 1) * per_page
             
+            # Obter conexão do banco de dados
+            conn = connections.get("default")
+
+            # Query para contar o total de registros
+            count_query = f"SELECT COUNT(id) FROM ({raw_query}) AS total"
+            
+            # Executar contagem total
+            total = await conn.execute_query_dict(count_query)
+            total = total[0]["count"] if total else 0
+
+            # Calcular total de páginas
+            total_pages = (total + per_page - 1) // per_page
+
+            # Aplicar paginação na query principal
+            paginated_query = f"{raw_query} LIMIT {per_page} OFFSET {offset}"
+            items = await conn.execute_query_dict(paginated_query)
+
             return {
                 "data": items,
                 "total": total,
                 "page": page,
                 "per_page": per_page,
-                "total_pages": (total + per_page - 1) // per_page
+                "total_pages": total_pages
             }
         except Exception as e:
             logger_error(__name__,e)
@@ -59,7 +82,7 @@ class ViewController(BaseController):
             if self.search_field:
                 query = query.filter(**{f"{self.search_field}__icontains": search})
             
-            return await self.query_paginator(query, page)
+            return await self.query_paginator(query.sql(True), page)
         except Exception as e:
             logger_error(__name__,e)
             raise HTTPException(status_code=400, detail=str(e))
