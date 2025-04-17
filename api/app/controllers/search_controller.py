@@ -3,16 +3,19 @@ from .view_controller import ViewController
 from app.models.photo import Photo
 from app.models.job import Job
 from tortoise import transactions
-from fastapi import UploadFile, HTTPException, Form
+from fastapi import UploadFile, HTTPException, Form,Query
+from fastapi.responses import JSONResponse
 import json,os
 from app.utils import logger_info,logger_error
 from app.services.recognition import Recognition
 from app.tasks import search_faces
-
+import shutil
+from tortoise.expressions import RawSQL
 class SearchController(ViewController):
     model = Search
     prefix = "searches"
 
+            
     async def create(
         self,
         file: UploadFile,
@@ -58,5 +61,4 @@ class SearchController(ViewController):
         except Exception as e:
             logger_error(__name__, e)
             raise HTTPException(400, str(e))
-
 

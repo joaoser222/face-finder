@@ -110,49 +110,6 @@ class PhotoController(ViewController):
         except Exception as e:
             logger_error(__name__,e)
             raise HTTPException(status_code=400, detail=str(e))
-    
-    async def delete(self, id: int):
-        """
-        Exclui um registro na model pelo id
-
-        Args:
-            id (int): Id do registro
-        """
-        try:
-            async with transactions.in_transaction():
-                record = await self.get_model_by_user().get_or_none(id=id)
-                if not record:
-                    raise HTTPException(status_code=404, detail="Registro não encontrado")
-                
-                # Remove o arquivo salvo localmente
-                if os.path.exists(record.file_path):
-                    os.remove(record.file_path)
-                
-                # Remove as faces associadas
-                if(record.face_count > 0):
-                    conn = connections.get("default")
-    
-                    result = await conn.execute_query_dict("""
-                        SELECT 
-                            COUNT(faces.id) as counter
-                        FROM faces
-                        INNER JOIN search_faces ON search_faces.face_id = faces.id
-                        WHERE 
-                            faces.photo_id = $1
-                    """,
-                        [record.id]
-                    )
-
-                    if result[0]["counter"] > 0:
-                        raise Exception("Não foi possível excluir o registro, pois ele possui uma pesquisa associada")
-                    else:
-                        await conn.execute_query_dict("DELETE FROM faces WHERE photo_id = $1", [record.id])
-
-                await record.delete()
-            return JSONResponse(content={})
-        except Exception as e:
-            logger_error(__name__,e)
-            raise HTTPException(400, str(e))
 
     async def get_thumbnail(self, id: int):
         """

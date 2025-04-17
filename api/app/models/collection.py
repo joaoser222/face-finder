@@ -1,5 +1,6 @@
 from tortoise import fields, models
 from .base import BaseModel
+import os,shutil
 
 class CollectionStatus:
     UNPACKING = 0
@@ -28,7 +29,7 @@ class Collection(BaseModel):
                 return
             
             photo = await Photo.filter(owner_type='collection', owner_id=self.id).get_or_none()
-            
+
             if photo is not None:
                 self.thumbnail_photo_id = photo.id
             
@@ -36,6 +37,15 @@ class Collection(BaseModel):
         except Exception as e:
             logger_error(__name__,e)
             raise
+    
+    async def delete(self, *args, **kwargs):
+        # Lógica pré-delete
+        collection_path = f"/app/files/collection/{self.id}"
+        if os.path.exists(collection_path):
+            shutil.rmtree(collection_path)
+
+        # Chama o delete original
+        await super().delete(*args, **kwargs)
 
     def __str__(self):
         return self.name

@@ -116,31 +116,3 @@ class CollectionController(ViewController):
             await transaction.rollback()
             logger_error(__name__,e)
             raise HTTPException(400, str(e))
-
-    async def delete(self, id: int):
-        """
-        Exclui um registro na model pelo id
-
-        Args:
-            id (int): Id do registro
-        """
-        try:
-            async with transactions.in_transaction():
-                record = await self.get_model_by_user().get_or_none(id=id)
-                if not record:
-                    raise HTTPException(status_code=404, detail="Registro não encontrado")
-                
-                collection_path = f"/app/files/collections/{record.id}"
-                # Remove o arquivo salvo localmente
-                if os.path.exists(collection_path):
-                    shutil.rmtree(collection_path)
-                    
-                # Remove as fotos associadas
-                if(record.photo_quantity > 0):
-                    await Photo.filter(owner_id=id, owner_type="collection").delete()
-                
-                await record.delete()
-            return JSONResponse(content={})
-        except Exception as e:
-            logger_error(__name__,e)
-            raise HTTPException(400, str(e))

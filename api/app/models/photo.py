@@ -12,6 +12,14 @@ class Photo(FileModel):
 
     class Meta:
         table = "photos"
+    
+    async def delete(self, *args, **kwargs):
+        # Remove o arquivo salvo localmente
+        if os.path.exists(self.file_path):
+            os.remove(self.file_path)
+
+        # Chama o delete original
+        await super().delete(*args, **kwargs)
 
     def __str__(self):
         return f"{self.file_path}"
