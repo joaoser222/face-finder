@@ -4,10 +4,9 @@ from app.controllers.view_controller import ViewController
 from PIL import Image
 from io import BytesIO
 from fastapi import HTTPException,Depends,Query
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 from pathlib import Path
 import os
-from tortoise import transactions,connections
 from app.utils import logger_info,logger_error
 
 class PhotoController(ViewController):
@@ -31,6 +30,12 @@ class PhotoController(ViewController):
         self.router.add_api_route(
             "/faces/{id}", 
             self.get_faces, 
+            methods=["GET"], 
+            dependencies=[Depends(self.set_current_user)]
+        )
+        self.router.add_api_route(
+            "/by-search-face/{search_id}", 
+            self.get_by_search_face, 
             methods=["GET"], 
             dependencies=[Depends(self.set_current_user)]
         )
@@ -66,7 +71,54 @@ class PhotoController(ViewController):
                 query = query.filter(**{f"{self.search_field}__icontains": search})
                 
             
-            return await self.query_paginator(query, page)
+            return await self.query_paginator(query.sql(True), page)
+        except Exception as e:
+            logger_error(__name__,e)
+            raise HTTPException(status_code=400, detail=str(e))
+    
+
+    async def get_by_search_face(
+        self,
+        search_id: int,
+        page: int = Query(1, ge=1, description="Número da página"),
+        search: str = Query(None, description="Pesquisa")
+    ):
+        """
+        Retorna fotos paginadas de uma collection
+        
+        Args:
+            owner_type (str): Tipo do owner
+            owner_id (int): Id do owner
+            page (int): Número da página (default: 1)
+            search (str, optional): Texto de pesquisa
+        
+        Returns:
+            dict: {
+                "items": lista de fotos,
+                "total": total de fotos,
+                "page": página atual,
+                "per_page": itens por página,
+                "total_pages": total de páginas
+            }
+        """
+        try:
+            filter_search=""
+            if self.search_field and search:
+                filter_search = f" AND photos.{self.search_field} LIKE '%%{search}%%'"
+            raw_query = f"""
+                SELECT photos.* FROM photos
+                WHERE
+                    photos.user_id = {self.current_user.id} AND
+                    EXISTS (
+                        SELECT 1
+                        FROM search_faces
+                        WHERE 
+                            search_faces.photo_id = photos.id AND 
+                            search_faces.search_id = {search_id}
+                    )
+                    {filter_search}
+            """
+            return await self.query_paginator(raw_query, page)
         except Exception as e:
             logger_error(__name__,e)
             raise HTTPException(status_code=400, detail=str(e))
