@@ -82,6 +82,7 @@ class Recognition:
                     face = await SearchFace.create(
                         search_id=search.id,
                         face_id=face.id,
+                        photo_id=face.photo_id,
                         user_id=search.user_id
                     )
                     return face
