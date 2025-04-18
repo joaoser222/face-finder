@@ -81,6 +81,7 @@ class Recognition:
                 if not has_face:
                     face = await SearchFace.create(
                         search_id=search.id,
+                        similarity=float(similarity),
                         face_id=face.id,
                         photo_id=face.photo_id,
                         user_id=search.user_id
