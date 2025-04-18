@@ -6,6 +6,7 @@ from app.controllers.auth_controller import AuthController
 from app.controllers.collection_controller import CollectionController
 from app.controllers.search_controller import SearchController
 from app.controllers.photo_controller import PhotoController
+from app.controllers.sse_controller import SSEController
 from app.utils import setup_logging
 from app.tasks import check_downloaded_model
 import asyncio
@@ -50,3 +51,5 @@ app.include_router(AuthController().router)
 app.include_router(CollectionController().router)
 app.include_router(PhotoController().router)
 app.include_router(SearchController().router)
+app.include_router(SSEController().router)
+

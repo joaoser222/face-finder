@@ -13,12 +13,9 @@ from app.utils import logger_info, logger_error
 import shutil
 import asyncio
 from app.config import init_db, close_db
-import redis
 from concurrent.futures import ThreadPoolExecutor
 from app.services.recognition import Recognition
-
-# Configuração do Redis
-redis_client = redis.from_url(os.getenv("DATABASE_REDIS_URL"))
+from app.services.sse_manager import sse_manager
 
 # Configuração do Celery
 celery_app = Celery(
@@ -172,6 +169,12 @@ def collection_uncompression(self, job_id):
                 shutil.rmtree(temp_dir)
                 await job.delete()
 
+                await sse_manager.publish(
+                    collection.user_id,
+                    {'entity':'collections', 'id': collection.id},
+                    'collection_uncompression'
+                )
+
                 logger_info(__name__, f'{added_photos_counter} foto(s) adicionada(s) à coleção {collection.id}')
 
             except Exception as e:
@@ -234,8 +237,14 @@ def collection_indexation(self, job_id):
                 # Atualiza coleção para "concluído"
                 collection.status = CollectionStatus.FINISHED
                 await collection.save()
-                
                 await job.delete()
+
+                await sse_manager.publish(
+                    collection.user_id,
+                    {'entity':'collections', 'id': collection.id},
+                    'collection_indexation'
+                )
+
                 logger_info(__name__, f'Imagens da coleção {collection.id} indexadas com sucesso')
             except Exception as e:
                 logger_error(__name__,e)
@@ -302,8 +311,14 @@ def search_faces(self, job_id):
                 # Atualiza coleção para "concluído"
                 search.status = SearchStatus.FINISHED
                 await search.save()
-                
                 await job.delete()
+
+                await sse_manager.publish(
+                    search.user_id,
+                    {'entity':'searches', 'id': search.id},
+                    'search_faces'
+                )
+
                 logger_info(__name__, f'Pesquisa {search.id} concluída')
             except Exception as e:
                 logger_error(__name__,e)
