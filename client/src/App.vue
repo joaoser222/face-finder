@@ -4,6 +4,7 @@
       <router-view />
     </v-main>
     <dialog-area ref="dialogArea"/>
+    <v-sonner :visible-toasts="5" expand position="bottom-right"/>
     <loading-dialog :dialog="loadingDialogStatus" :message="loadingDialogMessage"></loading-dialog>
   </v-app>
 </template>
@@ -12,8 +13,9 @@
 import { ref, provide} from 'vue';
 import DialogArea from '@/components/DialogArea.vue';
 import LoadingDialog from '@/components/LoadingDialog.vue';
+import { VSonner, toast } from 'vuetify-sonner';
 export default {
-  components:{DialogArea,LoadingDialog},
+  components:{DialogArea,LoadingDialog,VSonner},
   setup() {
     const dialogArea = ref(null);
     const loadingDialogStatus = ref(false);
@@ -39,6 +41,7 @@ export default {
         loadingDialogMessage.value = '';
       }
     }
+    provide('toast', toast);
     provide('dialog', dialogCall);
     provide('loadingDialog', loadingDialog);
     return { dialogArea, loadingDialogStatus, loadingDialogMessage };
