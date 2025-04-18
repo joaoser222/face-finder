@@ -47,7 +47,7 @@ export default createVuetify({
     },
     VBtn: {
       rounded: 'lg',
-      variant: 'outlined'
+      variant: 'flat'
     },
     VChip: {
       rounded: 'lg',
@@ -70,12 +70,18 @@ export default createVuetify({
     VListItem: {
       rounded: 'lg',
     },
-    VProgressCircular:{
-      size: '90',
-      color: 'primary',
-      indeterminate: true
+    VDialog: {
+      VProgressCircular:{
+        size: '90',
+        color: 'primary',
+        indeterminate: true
+      }
     },
-    // Outros componentes que você queira arredondar
+    VCheckbox: {
+      trueIcon: 'SquareCheckFilled',
+      falseIcon: 'Square',
+      variant: 'flat'
+    }
   },
   icons: {
     defaultSet: 'tabler',
