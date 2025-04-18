@@ -29,8 +29,69 @@
   </v-layout>
 </template>
 
-<script setup>
+<script>
 import Toolbar from '@/pages/reusables/Toolbar.vue'
+import { useAuthStore } from '@/stores/authStore';
+import { ref, inject} from 'vue';
+export default {
+  components: { Toolbar },
+  setup() {
+    const authStore = useAuthStore();
+    const toast = inject('toast');
+    // Função para criar conexão SSE
+    function connectToSSE() {
+      const token = authStore.token;
+
+      // Conectar ao endpoint de eventos, passando o token de autenticação
+      const eventSource = new EventSource(`/api/sse/events/${token}`);
+
+      const reloadRoute = (name)=>{
+        const currentRoute = window.location.pathname.split('/')[1];
+        if(name==currentRoute) window.location.reload();
+      }
+     
+      // Tratamento de eventos genéricos
+      eventSource.onmessage = function(event) {
+        let event_data = JSON.parse(event.data);
+        
+        toast(event_data.message,{
+          duration: 3000,
+          cardProps: {
+            color: 'success',
+          },
+          prependIcon: 'Check',
+          progressBar: true,
+          onDismiss: t => reloadRoute(event_data.entity),
+          onAutoClose: t => reloadRoute(event_data.entity),
+        });
+      };
+      
+      // Tratamento de erros
+      eventSource.onerror = function(error) {
+        toast(`Falha ao tentar conectar ao receptor de eventos`,{
+          duration: 3000,
+          cardProps: {
+            color: 'error',
+          },
+          prependIcon: 'X',
+          progressBar: true
+        });
+          
+        // Tentar reconectar após curto intervalo
+        setTimeout(() => {
+            connectToSSE(token);
+        }, 5000);
+      };
+      
+      return eventSource;
+    }
+
+    // Chamar ao inicializar o componente
+    const sseConnection = connectToSSE();
+
+    return { };
+  }
+}
 </script>
 
 <style scoped>
