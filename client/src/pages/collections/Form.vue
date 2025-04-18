@@ -12,15 +12,14 @@
         placeholder="Nome da coleção"
         class="mb-3"
         v-maska="masks.uppercase"
+        v-if="!id"
       />
       <v-file-input
         v-model="form.file"
         label="Arquivo"
         accept=".zip"
         placeholder="Arquivo no formato ZIP"
-        :rules="[
-          (v) => (id?null:validations.required(v))
-        ]"
+        :rules="[validations.required]"
         dense
         class="mb-3"
         persistent-hint
@@ -59,7 +58,7 @@ export default {
   },
   computed: {
     actionName() {
-      return this.id ? 'Editar Coleção' : 'Criar Coleção';
+      return this.id ? 'Atualizar Coleção' : 'Criar Coleção';
     },
     validations() {
       return validations;
