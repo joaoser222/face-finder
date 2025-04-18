@@ -3,14 +3,11 @@ from .view_controller import ViewController
 from app.models.photo import Photo
 from app.models.job import Job
 from tortoise import transactions
-from fastapi import UploadFile, HTTPException, Form,Query
-from fastapi.responses import JSONResponse
+from fastapi import UploadFile, HTTPException, Form
 import json,os
 from app.utils import logger_info,logger_error
 from app.services.recognition import Recognition
 from app.tasks import search_faces
-import shutil
-from tortoise.expressions import RawSQL
 class SearchController(ViewController):
     model = Search
     prefix = "searches"
@@ -42,6 +39,9 @@ class SearchController(ViewController):
                 await photo.delete()
                 await record.delete()
                 raise HTTPException(400, "A foto não contém faces!")
+            else:
+                record.thumbnail_photo_id = photo.id
+                await record.save()
             
             job = await Job.create(
                 process_type="search_faces",
