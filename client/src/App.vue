@@ -43,6 +43,13 @@ export default {
     }
     provide('toast', toast);
     provide('dialog', dialogCall);
+    provide('catchRequestErrors',(error)=>{
+      if (error.response?.data?.detail) {
+        dialogCall({title: "Erro!", type: 'error',message: error.response.data.detail});
+      }else{
+        dialogCall({title: "Erro!", type: 'error',message: error});
+      }
+    })
     provide('loadingDialog', loadingDialog);
     return { dialogArea, loadingDialogStatus, loadingDialogMessage };
   }
