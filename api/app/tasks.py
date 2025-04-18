@@ -8,7 +8,6 @@ from app.models.job import Job, JobStatus
 from app.models.face import Face
 from app.models.search import Search,SearchStatus
 from app.models.search_face import SearchFace
-
 from app.utils import logger_info, logger_error
 import shutil
 import asyncio
@@ -16,6 +15,7 @@ from app.config import init_db, close_db
 from concurrent.futures import ThreadPoolExecutor
 from app.services.recognition import Recognition
 from app.services.sse_manager import sse_manager
+from tortoise import connections
 
 # Configuração do Celery
 celery_app = Celery(
@@ -171,7 +171,11 @@ def collection_uncompression(self, job_id):
 
                 await sse_manager.publish(
                     collection.user_id,
-                    {'entity':'collections', 'id': collection.id},
+                    {
+                        'entity':'collections', 
+                        'id': collection.id,
+                        'message': f'Coleção {collection.name} descompactada com sucesso'
+                    },
                     'collection_uncompression'
                 )
 
@@ -233,15 +237,33 @@ def collection_indexation(self, job_id):
                     
                     # Aguarda a conclusão de todas as tarefas
                     await asyncio.gather(*tasks)
+
+                conn = connections.get("default")
+
+                # Query para contar as faces de fotos
+                face_counter_query = f"""
+                    SELECT COUNT(faces.id) FROM faces
+                    INNER JOIN photos ON photos.id=faces.photo_id
+                    WHERE
+                        photos.owner_id={collection.id} AND
+                        photos.owner_type='collection' AND
+                        photos.is_indexed=true
+                """
                 
-                # Atualiza coleção para "concluído"
+                # Executar contagem total
+                face_counter = await conn.execute_query_dict(face_counter_query)
+                face_counter = face_counter[0]["count"] if face_counter else 0
                 collection.status = CollectionStatus.FINISHED
                 await collection.save()
                 await job.delete()
 
                 await sse_manager.publish(
                     collection.user_id,
-                    {'entity':'collections', 'id': collection.id},
+                    {
+                        'entity':'collections', 
+                        'id': collection.id,
+                        'message': f'Coleção {collection.name} indexada com sucesso: {face_counter} faces encontradas'
+                    },
                     'collection_indexation'
                 )
 
@@ -255,75 +277,90 @@ def collection_indexation(self, job_id):
         logger_error(__name__,e)
         raise
 
-@celery_app.task(bind=True,max_retries=0)
+@celery_app.task(bind=True, max_retries=0)
 def search_faces(self, job_id):
     """
-    Busca as faces nas coleções
+    Busca as faces nas coleções com tratamento adequado de recursos
     """
     try:
+        # Cria um novo loop de evento para a execução assíncrona
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
         async def __action__():
             try:
                 job = await check_job(job_id)
+                if not job:
+                    raise Exception(f'Job {job_id} não encontrado')
+
                 search = await Search.get_or_none(id=job.owner_id)
+                if not search:
+                    await job.delete()
+                    raise Exception(f'Pesquisa {job.owner_id} não encontrada')
+                
+                # Atualiza status para PROCESSING
                 search.status = SearchStatus.PROCESSING
                 await search.save()
 
-                if not search:
-                    await job.delete()
-                    logger_info(__name__, f'Pesquisa {job.owner_id} não encontrada')
-                    return
-                
-                faces_to_search = []
+                # Busca todas as fotos e faces de uma vez
                 photos = await Photo.filter(
                     owner_id__in=search.collections,
                     owner_type="collection",
                     is_indexed=True
-                ).prefetch_related('faces').only('id')
-                
-                for photo in photos:
-                    for face in photo.faces:
-                        faces_to_search.append(face)
+                ).prefetch_related('faces')
 
-                # Inicializa o FaceAnalysis uma única vez (será reutilizado nas threads)
-                recognition = await Recognition.create()
-
-                # Configuração do ThreadPool
-                max_workers = min(8, len(faces_to_search))  # Limita a 8 threads ou menos se tiver poucas faces
-                loop = asyncio.get_running_loop()
-                
-                # Processa as faces em paralelo
-                with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                    tasks = []
-                    for face in faces_to_search:
-                        # Submete cada face para processamento no thread pool
-                        task = loop.run_in_executor(
-                            executor,
-                            lambda f=face, s=search: asyncio.run_coroutine_threadsafe(
-                                recognition.compare_faces(s, f),
-                                loop
-                            ).result()
-                        )
-                        tasks.append(task)
+                faces_to_search = [face for photo in photos for face in photo.faces]
                     
-                    # Aguarda a conclusão de todas as tarefas
-                    await asyncio.gather(*tasks)
+                # Inicializa o reconhecimento
+                recognition = await Recognition.create()
                 
-                # Atualiza coleção para "concluído"
-                search.status = SearchStatus.FINISHED
-                await search.save()
-                await job.delete()
+                try:
+                    # Processa as faces em paralelo (manualmente)
+                    chunk_size = 50  # Processa em lotes para evitar sobrecarga
+                    for i in range(0, len(faces_to_search), chunk_size):
+                        chunk = faces_to_search[i:i + chunk_size]
+                        tasks = [recognition.compare_faces(search, face) for face in chunk]
+                        await asyncio.gather(*tasks)
 
-                await sse_manager.publish(
-                    search.user_id,
-                    {'entity':'searches', 'id': search.id},
-                    'search_faces'
-                )
-
-                logger_info(__name__, f'Pesquisa {search.id} concluída')
+                    face_counter = await SearchFace.filter(search_id=search.id).count()
+                    # Atualiza status para FINISHED
+                    search.status = SearchStatus.FINISHED
+                    await search.save()
+                    
+                    # Notifica via SSE
+                    await sse_manager.publish(
+                        str(search.user_id),
+                        {
+                            'entity': 'searches', 
+                            'id': search.id, 
+                            'message': f'Pesquisa de faces {search.name} concluída: {face_counter} face(s) encontrada(s)'
+                        },
+                        'search_faces'
+                    )
+                    
+                    logger_info(__name__, f'Pesquisa {search.id} concluída com sucesso')
+                
+                finally:
+                    # Garante que o recurso de reconhecimento seja liberado
+                    if hasattr(recognition, 'close'):
+                        await recognition.close()
+                
             except Exception as e:
-                logger_error(__name__,e)
+                logger_error(__name__, e)
+                if 'search' in locals():
+                    search.status = SearchStatus.FAILED
+                    await search.save()
                 raise
-        async_to_sync(__action__)
+            finally:
+                # Garante que o job seja removido
+                if 'job' in locals():
+                    await job.delete()
+
+        # Executa a ação assíncrona
+        loop.run_until_complete(__action__())
+        
     except Exception as e:
-        logger_error(__name__,e)
+        logger_error(__name__, e)
         raise
+    finally:
+        loop.close()

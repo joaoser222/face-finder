@@ -3,7 +3,7 @@ import json
 import asyncio
 import logging
 import redis.asyncio as redis
-from typing import Dict, Any, AsyncGenerator, Optional
+from typing import Dict, Any, AsyncGenerator, Optional, Tuple
 from datetime import datetime
 import os
 
@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 class SSEManager:
     """
-    Gerenciador SSE usando Redis como backend para suportar múltiplas instâncias.
-    Implementa padrão publish-subscribe com canais por usuário.
+    Gerenciador SSE com Redis que remove eventos após confirmação de recebimento.
+    Implementa uma fila FIFO (First-In-First-Out) com confirmação.
     """
     _instance = None
     
@@ -24,149 +24,127 @@ class SSEManager:
     
     def _initialize(self) -> None:
         """Inicializa a conexão com Redis e estruturas locais."""
-        # Conexão Redis (usando URL de conexão)
         self.redis_conn = redis.from_url(
             os.getenv("DATABASE_REDIS_URL"),
             decode_responses=True
         )
         
-        # Dicionário de subscribers locais (por user_identifier)
-        self.local_subscribers: Dict[str, asyncio.Queue] = {}
+        # Dicionário de filas locais por usuário
+        self.active_consumers: Dict[str, asyncio.Queue] = {}
         self.lock = asyncio.Lock()
         logger.info("SSEManager initialized with Redis backend")
-    
-    async def subscribe(self, user_identifier: str) -> None:
-        """
-        Registra um usuário para receber eventos.
-        Cria um subscription no Redis e uma fila local para o usuário.
-        """
-        async with self.lock:
-            if user_identifier not in self.local_subscribers:
-                # Cria uma fila local para o usuário
-                self.local_subscribers[user_identifier] = asyncio.Queue()
-                
-                # Inicia a escuta do canal Redis em segundo plano
-                asyncio.create_task(
-                    self._redis_listener(user_identifier)
-                )
-                logger.info(f"User {user_identifier} subscribed to SSE via Redis")
-    
-    async def unsubscribe(self, user_identifier: str) -> None:
-        """Remove a inscrição de um usuário."""
-        async with self.lock:
-            if user_identifier in self.local_subscribers:
-                del self.local_subscribers[user_identifier]
-                logger.info(f"User {user_identifier} unsubscribed from SSE")
-    
+
+    async def _get_redis_list_key(self, user_identifier: str) -> str:
+        """Retorna a chave Redis para a lista de eventos do usuário"""
+        return f"sse:events:{user_identifier}"
+
+    async def _get_processing_key(self, user_identifier: str) -> str:
+        """Retorna a chave Redis para o evento em processamento"""
+        return f"sse:processing:{user_identifier}"
+
     async def publish(self, user_identifier: str, data: Dict[str, Any], event_type: Optional[str] = None) -> bool:
         """
-        Publica um evento para um usuário específico via Redis.
-        """
-        event = {
-            "timestamp": datetime.now().isoformat(),
-            "data": data
-        }
-        
-        if event_type:
-            event["event"] = event_type
-        
-        # Publica no canal específico do usuário
-        try:
-            await self.redis_conn.publish(
-                f"sse:{user_identifier}",
-                json.dumps(event)
-            )
-            logger.debug(f"Event published to Redis channel sse:{user_identifier}")
-            return True
-        except Exception as e:
-            logger.error(f"Error publishing to Redis: {str(e)}")
-            return False
-    
-    async def publish_to_all(self, data: Dict[str, Any], event_type: Optional[str] = None) -> int:
-        """
-        Publica um evento para todos os usuários via Redis.
-        (Implementação alternativa usando um canal broadcast)
+        Publica um evento para um usuário específico.
+        O evento só será removido após confirmação de recebimento.
         """
         event = {
             "timestamp": datetime.now().isoformat(),
             "data": data,
-            "broadcast": True
+            "event_type": event_type,
         }
         
-        if event_type:
-            event["event"] = event_type
-        
         try:
-            await self.redis_conn.publish(
-                "sse:broadcast",
+            # Adiciona o evento no final da lista Redis (RPUSH)
+            await self.redis_conn.rpush(
+                await self._get_redis_list_key(user_identifier),
                 json.dumps(event)
             )
-            logger.debug("Broadcast event published to Redis")
-            return len(self.local_subscribers)
+            logger.debug(f"Event published for user {user_identifier}")
+            return True
         except Exception as e:
-            logger.error(f"Error publishing broadcast: {str(e)}")
-            return 0
-    
-    async def get_event_generator(self, user_identifier: str) -> AsyncGenerator[str, None]:
+            logger.error(f"Error publishing event: {str(e)}")
+            return False
+
+    async def get_next_event(self, user_identifier: str) -> Optional[Dict[str, Any]]:
+        try:
+            event_json = await self.redis_conn.lmove(
+                await self._get_redis_list_key(user_identifier),
+                await self._get_processing_key(user_identifier),
+                "RIGHT",
+                "LEFT"
+            )
+            
+            if event_json:
+                event = json.loads(event_json)
+                return event['data']
+            return None
+
+        except Exception as e:
+            logger.error(f"Error getting next event: {str(e)}")
+            return None
+
+
+    async def confirm_event_processed(self, user_identifier: str) -> bool:
         """
-        Cria um gerador de eventos SSE para um usuário.
+        Confirma que o evento atual foi processado e pode ser removido.
         """
-        await self.subscribe(user_identifier)
-        
+        try:
+            # Remove o evento que estava em processamento
+            removed = await self.redis_conn.lpop(
+                await self._get_processing_key(user_identifier)
+            )
+            return removed is not None
+        except Exception as e:
+            logger.error(f"Error confirming event processed: {str(e)}")
+            return False
+
+    async def get_event_generator(self, user_identifier: str) -> AsyncGenerator[Dict[str, Any], None]:
         try:
             while True:
-                # Pega eventos da fila local do usuário
-                event = await self.local_subscribers[user_identifier].get()
-                yield self._format_sse_event(event)
+                event = await self.get_next_event(user_identifier)
+                
+                if event:
+                    try:
+                        yield event
+                        await self.confirm_event_processed(user_identifier)
+                    except Exception as e:
+                        logger.error(f"Error processing event: {str(e)}")
+                        await self._requeue_event(user_identifier, event)
+                        raise
+                else:
+                    # Esperar até novos eventos serem publicados
+                    await asyncio.sleep(0.5)  # pode aumentar um pouco o intervalo
         except asyncio.CancelledError:
-            logger.info(f"SSE connection cancelled for user {user_identifier}")
-            await self.unsubscribe(user_identifier)
+            logger.info(f"Event generator cancelled for user {user_identifier}")
             raise
         except Exception as e:
-            logger.error(f"Error in event generator for user {user_identifier}: {str(e)}")
-            await self.unsubscribe(user_identifier)
+            logger.error(f"Error in event generator: {str(e)}")
             raise
-    
-    async def _redis_listener(self, user_identifier: str) -> None:
+
+
+    async def _requeue_event(self, user_identifier: str, event: Dict[str, Any]) -> bool:
         """
-        Escuta mensagens do Redis e coloca na fila local do usuário.
+        Recoloca um evento que falhou no processamento de volta na fila.
         """
-        pubsub = self.redis_conn.pubsub()
-        await pubsub.subscribe(
-            f"sse:{user_identifier}",
-            "sse:broadcast"
-        )
-        
         try:
-            async for message in pubsub.listen():
-                if message["type"] != "message":
-                    continue
-                
-                event = json.loads(message["data"])
-                
-                # Verifica se é um broadcast ou mensagem específica
-                if (message["channel"] == "sse:broadcast" and 
-                    not event.get("broadcast", False)):
-                    continue
-                
-                # Adiciona na fila local do usuário
-                if user_identifier in self.local_subscribers:
-                    await self.local_subscribers[user_identifier].put(event)
+            event["status"] = "pending"
+            event["retries"] = event.get("retries", 0) + 1
+            
+            # Adiciona no início da fila (LPUSH para reprocessamento imediato)
+            await self.redis_conn.lpush(
+                await self._get_redis_list_key(user_identifier),
+                json.dumps(event)
+            )
+            
+            # Remove da lista de processamento
+            await self.redis_conn.lpop(
+                await self._get_processing_key(user_identifier)
+            )
+            
+            return True
         except Exception as e:
-            logger.error(f"Redis listener error for {user_identifier}: {str(e)}")
-        finally:
-            await pubsub.unsubscribe()
-            logger.info(f"Stopped Redis listener for {user_identifier}")
-    
-    def _format_sse_event(self, event: dict) -> str:
-        """Formata um evento no formato SSE."""
-        message = ""
-        
-        if "event" in event:
-            message += f"event: {event['event']}\n"
-        
-        message += f"data: {json.dumps(event['data'])}\n\n"
-        return message
+            logger.error(f"Error requeueing event: {str(e)}")
+            return False
 
 # Exportar singleton
 sse_manager = SSEManager()
