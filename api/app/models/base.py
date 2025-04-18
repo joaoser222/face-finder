@@ -8,6 +8,11 @@ class BaseModel(models.Model):
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now_add=True)
     
+    async def apply_update(self,**kwargs):
+        for key, value in kwargs.items():
+            if(not(key in ('id','created_at','updated_at'))):
+                setattr(self, key, value)
+        await self.save()
     class Meta:
         abstract = True 
 

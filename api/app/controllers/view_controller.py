@@ -138,7 +138,7 @@ class ViewController(BaseController):
                 record = await self.get_model_by_user().get_or_none(id=id)
                 if not record:
                     raise HTTPException(status_code=404, detail="Registro não encontrado")
-                await record.update(**params)
+                await record.apply_update(**params)
             return record
         except Exception as e:
             logger_error(__name__,e)

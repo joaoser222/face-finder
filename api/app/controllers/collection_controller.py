@@ -92,15 +92,14 @@ class CollectionController(ViewController):
             Collection: Registro atualizado
         """
         try:
-            # Converte a string JSON para dicionário
-            params_dict = json.loads(params)
-            params_dict["user_id"] = self.current_user.id
-
             async with transactions.in_transaction():
+                # Converte a string JSON para dicionário
+                params_dict = json.loads(params)
+                params_dict["user_id"] = self.current_user.id
                 record = await self.model.get_or_none(id=id)
                 if not record:
                     raise HTTPException(status_code=404, detail="Registro não encontrado")
-                await record.update(**params_dict)
+                await record.apply_update(**params_dict)
 
             # Caso exista um novo arquivo na atualização, processa o arquivo
             if file:
