@@ -1,17 +1,22 @@
-from app.models.search import Search
+from app.models.search import Search,SearchStatus
+from app.models.search_face import SearchFace
 from .view_controller import ViewController
 from app.models.photo import Photo
 from app.models.job import Job
 from tortoise import transactions
-from fastapi import UploadFile, HTTPException, Form
+from fastapi import UploadFile, HTTPException, Form, Depends
+from fastapi.responses import JSONResponse
 import json,os
 from app.utils import logger_info,logger_error
 from app.services.recognition import Recognition
 from app.tasks import search_faces
+
 class SearchController(ViewController):
     model = Search
     prefix = "searches"
 
+    def __init__(self):
+        super().__init__()
             
     async def create(
         self,
@@ -61,4 +66,40 @@ class SearchController(ViewController):
         except Exception as e:
             logger_error(__name__, e)
             raise HTTPException(400, str(e))
+    
+    async def update(self, id: int, params: dict):
+        """
+        Atualiza um registro na model pelo id
+
+        Args:
+            id (int): Id do registro
+            params (dict): Parâmetros do registro
+        Returns:
+            Record: Registro atualizado
+        """
+        try:
+            async with transactions.in_transaction():
+                record = await self.get_model_by_user().get_or_none(id=id)
+                if not record:
+                    raise HTTPException(status_code=404, detail="Registro não encontrado")
+                
+                if(params.get('force_recreate')):
+                    await SearchFace.filter(search_id=record.id).delete()
+
+                record.tolerance_level = params['tolerance_level']
+                await record.save()
+
+                job = await Job.create(
+                    process_type="search_faces",
+                    owner_type='search',
+                    owner_id=record.id
+                )
+
+                search_faces.delay(job.id)
+                
+            return record
+        except Exception as e:
+            logger_error(__name__,e)
+            raise HTTPException(status_code=400, detail=str(e))
+
 
