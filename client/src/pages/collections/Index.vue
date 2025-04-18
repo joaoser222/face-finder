@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="h-100">
     <base-page :no-items="noItems" @search="handleSearch">
       <template #title>
         Coleções
