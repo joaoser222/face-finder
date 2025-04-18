@@ -107,12 +107,6 @@ class CollectionController(ViewController):
                 await self.__process_compressed_file(file, record)
 
             return record
-
-        except json.JSONDecodeError as e:
-            await transaction.rollback()
-            logger_error(__name__,e)
-            raise HTTPException(400, "Parâmetros inválidos (não é JSON válido)")
         except Exception as e:
-            await transaction.rollback()
             logger_error(__name__,e)
             raise HTTPException(400, str(e))
