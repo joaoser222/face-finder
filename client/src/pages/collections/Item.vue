@@ -105,7 +105,7 @@ export default {
       required: true
     }
   },
-  inject: ['dialog'],
+  inject: ['dialog','catchRequestErrors'],
   components: {BasePage, ItemGrid, CollectionForm},
   data: function(){
     return {
@@ -147,8 +147,7 @@ export default {
         const data = await api.get(`/photos/by-owner/collection/${this.id}`, { params: { page, search } })
         this.photos = {...data};
       } catch (error) {
-        console.error('Error fetching photos:', error)
-        this.$emit('error', error)
+        this.catchRequestErrors(error);
       }
     },
     async getFaces() {
@@ -159,7 +158,7 @@ export default {
         this.selectedPhoto.faces = {loading: true, data: []};
         this.selectedPhoto.faces.data = await api.get(`/photos/faces/${this.selectedPhoto.id}`)
       } catch (error) {
-        console.error('Error fetching faces:', error)
+        this.catchRequestErrors(error);
       } finally {
         this.selectedPhoto.faces.loading = false;
       }

@@ -47,7 +47,7 @@ export default {
       required: false
     }
   },
-  inject: ['dialog','loadingDialog'],
+  inject: ['loadingDialog','catchRequestErrors'],
   components: {DialogForm},
   data: function(){
     return {
@@ -79,7 +79,7 @@ export default {
         }
         this.$emit('success');
       } catch (error) {
-        this.dialog({title: "Erro!", type: 'error',message: error});
+        this.catchRequestErrors(error);
       } finally {
         this.loadingDialog.hide();
       }

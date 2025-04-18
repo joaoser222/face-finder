@@ -128,6 +128,7 @@ export default {
   components: {
     VPasswordInput
   },
+  inject: ['catchRequestErrors'],
   data() {
     return {
       isLogin: true,
@@ -183,10 +184,7 @@ export default {
         this.$router.push('/');
 
       } catch (error) {
-        console.error('Error:', error);
-        if (error.response?.data?.errors) {
-          this.errors = error.response.data.errors;
-        }
+        this.catchRequestErrors(error);
       } finally {
         this.loading = false;
       }
