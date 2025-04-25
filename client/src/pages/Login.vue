@@ -179,10 +179,8 @@ export default {
         } 
 
         const data = await api.post(postData.url,postData.data);
-        authStore.setAuth(data.token, data.expires_at);
-        
+        authStore.setAuth(data);
         this.$router.push('/');
-
       } catch (error) {
         this.catchRequestErrors(error);
       } finally {

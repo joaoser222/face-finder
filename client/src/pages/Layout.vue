@@ -32,12 +32,16 @@
 <script>
 import Toolbar from '@/pages/reusables/Toolbar.vue'
 import { useAuthStore } from '@/stores/authStore';
+import { useRouter } from 'vue-router';
 import { ref, inject} from 'vue';
 export default {
   components: { Toolbar },
   setup() {
     const authStore = useAuthStore();
+    const router = useRouter();
     const toast = inject('toast');
+
+    if(!authStore.isAuthenticated()) router.push('/login');
     // Função para criar conexão SSE
     function connectToSSE() {
       const token = authStore.token;
@@ -87,7 +91,7 @@ export default {
     }
 
     // Chamar ao inicializar o componente
-    const sseConnection = connectToSSE();
+    if(!window.sseConnection) window.sseConnection = connectToSSE();
 
     return { };
   }

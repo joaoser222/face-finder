@@ -2,24 +2,27 @@ import { defineStore } from 'pinia';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    token: null,       // Armazena o token JWT
-    expiresAt: null,   // Armazena o tempo de expiração do token
+    token: null,
+    expires_at: null,
+    user: {},
   }),
   actions: {
     // Define o token e o tempo de expiração
-    setAuth(token, expiresAt) {
-      this.token = token;
-      this.expiresAt = expiresAt;
+    setAuth(data) {
+      this.token = data.token;
+      this.expires_at = data.expires_at;
+      this.user = data.user;
+
     },
-    // Limpa o token e o tempo de expiração (logout)
     clearAuth() {
       this.token = null;
-      this.expiresAt = null;
+      this.expires_at = null;
+      this.user = {};
     },
-    // Verifica se o token está expirado
-    isTokenExpired() {
-      if (!this.expiresAt) return true;
-      return new Date() > new Date(this.expiresAt);
+    isAuthenticated() {
+      let status = this.token && new Date() < new Date(this.expires_at);
+      if(!status) this.clearAuth();
+      return status;
     },
   },
   persist: true, // Opcional: Persistir o estado no localStorage

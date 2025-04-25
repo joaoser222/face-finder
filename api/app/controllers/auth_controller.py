@@ -14,6 +14,8 @@ class AuthController:
 
         # Define as rotas
         self.router.add_api_route("/register", self.register, methods=["POST"])
+        self.router.add_api_route("/update", self.user_update, methods=["POST"])
+        self.router.add_api_route("/session", self.session_user, methods=["GET"])
         self.router.add_api_route("/login", self.login, methods=["POST"])
         self.router.add_api_route("/logout", self.logout, methods=["POST"])
     
@@ -22,7 +24,7 @@ class AuthController:
             token = str(uuid4())
             expires_at = datetime.now(timezone.utc) + timedelta(minutes=int(os.getenv("SESSION_EXPIRE_MINUTES")))
             await Session.create(user=user, token=token, expires_at=expires_at)
-            return {"token": token, "expires_at": expires_at}
+            return {"token": token, "expires_at": expires_at, "user": user.visible_fields()}
         except Exception as e:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -51,6 +53,21 @@ class AuthController:
         except Exception as e:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
+    async def session_user(self,current_user: User = Depends(get_current_user)):
+        try:
+            return current_user.visible_fields()
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    
+    async def user_update(self,request: Request,current_user: User = Depends(get_current_user)):
+        try:
+            data = await request.json()
+            current_user.update_from_dict(data)
+            await current_user.save()
+            return {}
+        except Exception as e:
+            raise
+        
     # Rota para fazer logout
     async def logout(self,current_user: User = Depends(get_current_user)):
         try:
