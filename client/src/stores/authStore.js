@@ -7,12 +7,13 @@ export const useAuthStore = defineStore('auth', {
     user: {},
   }),
   actions: {
-    // Define o token e o tempo de expiração
     setAuth(data) {
       this.token = data.token;
       this.expires_at = data.expires_at;
       this.user = data.user;
-
+    },
+    setUser(data){
+      this.user = data;
     },
     clearAuth() {
       this.token = null;

@@ -55,6 +55,7 @@ import PageContainer from '@/components/PageContainer.vue';
 import validations from '@/plugins/validations';
 import masks from '@/plugins/masks';
 import api from '@/plugins/axios';
+import { useAuthStore } from '@/stores/authStore';
 import { fi } from 'vuetify/locale';
 export default {
   name: 'Setting',
@@ -81,6 +82,8 @@ export default {
       try {
         this.loadingDialog.show('Enviando dados do usuário');
         const data = await api.post(`/auth/update`,this.form);
+        const authStore = useAuthStore();
+        authStore.setUser(this.form);
       }catch (error) {
         this.catchRequestErrors(error);
       }finally{
