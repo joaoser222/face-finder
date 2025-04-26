@@ -49,7 +49,7 @@ class ViewController(BaseController):
             count_query = f"SELECT COUNT(id) FROM ({raw_query}) AS total"
             
             # Executar contagem total
-            total = await execute_raw_sql(raw_query)
+            total = await execute_raw_sql(count_query)
             total = total[0]["count"] if total else 0
 
             # Calcular total de páginas
@@ -57,7 +57,7 @@ class ViewController(BaseController):
 
             # Aplicar paginação na query principal
             paginated_query = f"{raw_query} LIMIT {per_page} OFFSET {offset}"
-            items = await execute_raw_sql(count_query)
+            items = await execute_raw_sql(paginated_query)
 
             return {
                 "data": items,
