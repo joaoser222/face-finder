@@ -110,7 +110,7 @@ class PhotoController(ViewController):
                 query = f"""
                     SELECT 
                         faces.*,
-                        search_face.similarity 
+                        search_faces.similarity 
                     FROM faces
                     INNER JOIN search_faces ON search_faces.face_id = faces.id
                     WHERE
