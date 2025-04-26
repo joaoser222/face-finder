@@ -13,10 +13,14 @@
 import { ref, provide} from 'vue';
 import DialogArea from '@/components/DialogArea.vue';
 import LoadingDialog from '@/components/LoadingDialog.vue';
+import { useRouter, useRoute} from 'vue-router';
 import { VSonner, toast } from 'vuetify-sonner';
+
 export default {
   components:{DialogArea,LoadingDialog,VSonner},
   setup() {
+    const router = useRouter();
+    const currentRoute = useRoute();
     const dialogArea = ref(null);
     const loadingDialogStatus = ref(false);
     const loadingDialogMessage = ref('');
@@ -31,6 +35,10 @@ export default {
       }
     }
 
+    const getAssetUrl = function(path){
+      return new URL(path, import.meta.url).href;
+    };
+
     const loadingDialog = {
       show: function(msg){
         loadingDialogStatus.value = true;
@@ -41,16 +49,23 @@ export default {
         loadingDialogMessage.value = '';
       }
     }
+
     provide('toast', toast);
     provide('dialog', dialogCall);
     provide('catchRequestErrors',(error)=>{
       if (error.response?.data?.detail) {
+        if([403,401].includes(error.response.status)) return router.push('/login');
         dialogCall({title: "Erro!", type: 'error',message: error.response.data.detail});
       }else{
         dialogCall({title: "Erro!", type: 'error',message: error});
       }
     })
     provide('loadingDialog', loadingDialog);
+    provide('getAssetUrl', getAssetUrl);
+    provide('currentRouteParams', ()=>{
+      return currentRoute.params
+    });
+
     return { dialogArea, loadingDialogStatus, loadingDialogMessage };
   }
 }

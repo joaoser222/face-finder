@@ -1,5 +1,5 @@
 <template>
-  <dialog-form @save="save" :content="content" :multipart-form="true">
+  <dialog-form @save="save" :content="item" :multipart-form="true">
     <template #title>
       {{ actionName }}
     </template>
@@ -12,7 +12,7 @@
         placeholder="Nome da coleção"
         class="mb-3"
         v-maska="masks.uppercase"
-        v-if="!id"
+        v-if="!itemId"
       />
       <v-file-input
         v-model="form.file"
@@ -30,59 +30,59 @@
 </template>
 
 <script>
+import { ref, computed, inject } from 'vue';
+import { useRoute } from 'vue-router';
 import validations from '@/plugins/validations';
 import masks from '@/plugins/masks';
 import DialogForm from '@/components/DialogForm.vue';
 import api from '@/plugins/axios';
+
 export default {
   name: 'CollectionForm',
-  props: {
+  props:{
     id: {
-      type: Number,
-      required: false
-    },
-    content: {
-      type: Object,
-      required: false
+      type: String,
+      required: true
     }
   },
-  inject: ['loadingDialog','catchRequestErrors'],
-  components: {DialogForm},
-  data: function(){
-    return {
-      item: {
-        name: '',
-        file: null
-      }
-    }
-  },
-  computed: {
-    actionName() {
-      return this.id ? 'Atualizar Coleção' : 'Criar Coleção';
-    },
-    validations() {
-      return validations;
-    },
-    masks() {
-      return masks;
-    }
-  },
-  methods: {
-    async save(data) {
-      this.loadingDialog.show('Salvando Coleção');
+  components: { DialogForm },
+  setup(props, { emit }) {
+    const route = useRoute();
+    const loadingDialog = inject('loadingDialog');
+    const catchRequestErrors = inject('catchRequestErrors');
+
+    const item = ref({
+      name: '',
+      file: null
+    });
+
+    const itemId = computed(() => route.params.id);
+    const actionName = computed(() => itemId.value ? 'Atualizar Coleção' : 'Criar Coleção');
+
+    const save = async (data) => {
+      loadingDialog.show('Salvando Coleção');
       try {
-        if(this.id) {
-          await api.put(`/collections/update/${this.id}`, data, {headers: {'Content-Type': 'multipart/form-data'}});
+        if (itemId.value) {
+          await api.put(`/collections/update/${itemId.value}`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
         } else {
-          await api.post(`/collections/create`, data, {headers: {'Content-Type': 'multipart/form-data'}});
+          await api.post(`/collections/create`, data, { headers: { 'Content-Type': 'multipart/form-data' } });
         }
-        this.$emit('success');
+        emit('success');
       } catch (error) {
-        this.catchRequestErrors(error);
+        catchRequestErrors(error);
       } finally {
-        this.loadingDialog.hide();
+        loadingDialog.hide();
       }
-    }
+    };
+
+    return {
+      item,
+      itemId,
+      actionName,
+      validations,
+      masks,
+      save
+    };
   }
-}
+};
 </script>
