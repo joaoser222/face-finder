@@ -2,6 +2,7 @@ from tortoise import fields, models
 from .base import BaseModel
 import os,shutil
 class SearchStatus:
+    FAILED = -1
     WAITING = 0
     PROCESSING = 1
     FINISHED = 2

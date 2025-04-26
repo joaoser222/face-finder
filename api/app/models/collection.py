@@ -3,6 +3,7 @@ from .base import BaseModel
 import os,shutil
 
 class CollectionStatus:
+    FAILED = -1
     UNPACKING = 0
     INDEXING = 1
     FINISHED = 2
