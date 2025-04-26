@@ -6,7 +6,7 @@ from io import BytesIO
 from fastapi import HTTPException,Depends,Query
 from fastapi.responses import StreamingResponse
 from pathlib import Path
-import os
+import os,json
 from app.utils import logger_info,logger_error,execute_raw_sql
 
 class PhotoController(ViewController):
@@ -120,6 +120,7 @@ class PhotoController(ViewController):
                 """
 
                 result = await execute_raw_sql(query)
+                result = [{**item,'data': json.loads(item['data'])} for item in result]
             else:
                 result = await Face.filter(photo_id=photo_id).all()
                
