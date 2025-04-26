@@ -8,14 +8,13 @@ from app.models.job import Job, JobStatus
 from app.models.face import Face
 from app.models.search import Search,SearchStatus
 from app.models.search_face import SearchFace
-from app.utils import logger_info, logger_error
+from app.utils import logger_info, logger_error, execute_raw_sql
 import shutil
 import asyncio
 from app.config import init_db, close_db
 from concurrent.futures import ThreadPoolExecutor
 from app.services.recognition import Recognition
 from app.services.sse_manager import sse_manager
-from tortoise import connections
 
 # Configuração do Celery
 celery_app = Celery(
@@ -238,8 +237,6 @@ def collection_indexation(self, job_id):
                     # Aguarda a conclusão de todas as tarefas
                     await asyncio.gather(*tasks)
 
-                conn = connections.get("default")
-
                 # Query para contar as faces de fotos
                 face_counter_query = f"""
                     SELECT COUNT(faces.id) FROM faces
@@ -251,7 +248,7 @@ def collection_indexation(self, job_id):
                 """
                 
                 # Executar contagem total
-                face_counter = await conn.execute_query_dict(face_counter_query)
+                face_counter = await execute_raw_sql(face_counter_query)
                 face_counter = face_counter[0]["count"] if face_counter else 0
                 collection.status = CollectionStatus.FINISHED
                 await collection.save()
