@@ -7,7 +7,7 @@ from fastapi import HTTPException,Depends,Query
 from fastapi.responses import StreamingResponse
 from pathlib import Path
 import os
-from app.utils import logger_info,logger_error
+from app.utils import logger_info,logger_error,execute_raw_sql
 
 class PhotoController(ViewController):
     model = Photo
@@ -28,14 +28,8 @@ class PhotoController(ViewController):
             dependencies=[Depends(self.set_current_user)]
         )
         self.router.add_api_route(
-            "/faces/{id}", 
+            "/faces/{photo_id}", 
             self.get_faces, 
-            methods=["GET"], 
-            dependencies=[Depends(self.set_current_user)]
-        )
-        self.router.add_api_route(
-            "/by-search-face/{search_id}", 
-            self.get_by_search_face, 
             methods=["GET"], 
             dependencies=[Depends(self.set_current_user)]
         )
@@ -99,7 +93,7 @@ class PhotoController(ViewController):
             logger_error(__name__,e)
             raise HTTPException(status_code=400, detail=str(e))
     
-    async def get_faces(self, id: int):
+    async def get_faces(self, photo_id: int,search_id: int = Query(None, description="Pesquisa de Face")):
         """
         Retorna as faces de uma foto
 
@@ -109,8 +103,27 @@ class PhotoController(ViewController):
             list: Lista de faces
         """
         try:
-            faces = await Face.filter(photo_id=id).all()
-            return faces
+            result = []
+
+            # Caso o id de pesquisa seja passado na query, retorna as faces da pesquisa
+            if(search_id):
+                query = f"""
+                    SELECT 
+                        faces.*,
+                        search_face.similarity 
+                    FROM faces
+                    INNER JOIN search_faces ON search_faces.face_id = faces.id
+                    WHERE
+                        search_faces.search_id = {search_id} AND
+                        faces.user_id = {self.current_user.id} AND
+                        faces.photo_id = {photo_id}
+                """
+
+                result = await execute_raw_sql(query)
+            else:
+                result = await Face.filter(photo_id=photo_id).all()
+               
+            return result
         except Exception as e:
             logger_error(__name__,e)
             raise HTTPException(status_code=400, detail=str(e))
