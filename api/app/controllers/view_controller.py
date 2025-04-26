@@ -49,7 +49,7 @@ class ViewController(BaseController):
             count_query = f"SELECT COUNT(id) FROM ({raw_query}) AS total"
             
             # Executar contagem total
-            total = await execute_raw_sql(count_query)
+            total = await execute_raw_sql(raw_query)
             total = total[0]["count"] if total else 0
 
             # Calcular total de páginas
