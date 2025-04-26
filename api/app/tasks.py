@@ -280,9 +280,6 @@ def search_faces(self, job_id):
     Busca as faces nas coleções com tratamento adequado de recursos
     """
     try:
-        # Cria um novo loop de evento para a execução assíncrona
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         
         async def __action__():
             try:
@@ -354,10 +351,8 @@ def search_faces(self, job_id):
                     await job.delete()
 
         # Executa a ação assíncrona
-        loop.run_until_complete(__action__())
+        async_to_sync(__action__)
         
     except Exception as e:
         logger_error(__name__, e)
         raise
-    finally:
-        loop.close()
