@@ -119,5 +119,30 @@ class QueryBuilder:
     def build(self):
         return self.query.strip()
 
+async def execute_raw_sql(raw_sql: str,has_result: bool = True):
+    """
+    Executa uma query SQL bruta usando Tortoise-ORM.
+    Args:
+        raw_sql (str): A query SQL a ser executada.
+        has_result (bool, optional): Indica se a query deve retornar resultados. Padrão é True.
 
-    
+    Returns:
+        Any: O resultado da query.
+    """
+    try:
+        from tortoise import transactions,connections
+
+        result = None
+        # Obter conexão do banco de dados
+        conn = connections.get("default")
+        # Executar a query SQL
+        if(has_result):
+            result = await conn.execute_query_dict(raw_sql)
+            return result
+        else:
+            async with transactions.in_transaction():
+                await conn.execute_query(raw_sql)
+        return result
+    except Exception as e:
+        logger_error(__name__,e)
+        raise 

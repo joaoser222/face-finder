@@ -1,11 +1,12 @@
 from fastapi import HTTPException, Depends, UploadFile,Query
 from fastapi.responses import JSONResponse
-from app.utils import logger_info,logger_error
+from app.utils import logger_info,logger_error,execute_raw_sql
 from typing import Any
 import os
-from tortoise import transactions,connections
+from tortoise import transactions
 import shutil
 from .base_controller import BaseController
+
 
 class ViewController(BaseController):
     model = None
@@ -44,14 +45,11 @@ class ViewController(BaseController):
             # Calcular offset
             offset = (page - 1) * per_page
             
-            # Obter conexão do banco de dados
-            conn = connections.get("default")
-
             # Query para contar o total de registros
             count_query = f"SELECT COUNT(id) FROM ({raw_query}) AS total"
             
             # Executar contagem total
-            total = await conn.execute_query_dict(count_query)
+            total = await execute_raw_sql(count_query)
             total = total[0]["count"] if total else 0
 
             # Calcular total de páginas
@@ -59,7 +57,7 @@ class ViewController(BaseController):
 
             # Aplicar paginação na query principal
             paginated_query = f"{raw_query} LIMIT {per_page} OFFSET {offset}"
-            items = await conn.execute_query_dict(paginated_query)
+            items = await execute_raw_sql(count_query)
 
             return {
                 "data": items,
