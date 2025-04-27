@@ -2,7 +2,6 @@
   <image-grid-page
     :title="'Coleções'"
     :endpoint="'collections/list'"
-    :form-component="Form"
     :empty-title="'Gerencie suas coleções de fotos'"
     :empty-description="`
       Coleções são grupos de fotos que você deve criar para utilizar o algoritmo de pesquisa.
@@ -10,6 +9,9 @@
     @select="selectItem"
     :status-options="statusOptions"
   >
+    <template #actions="{getItems}">
+      <component :is="CollectionForm" @success="getItems()" />
+    </template>
     <template #item-top="{ item }">
       <v-btn 
         :icon="statusOptions[item.status].icon" 
@@ -39,7 +41,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import ImageGridPage from '../reusables/ImageGridPage.vue';
-import Form from './Form.vue';
+import CollectionForm from './Form.vue';
 import statusOptions from './statusOptions';
 
 const router = useRouter();

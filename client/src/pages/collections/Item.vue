@@ -3,12 +3,14 @@
     <image-grid-page
       :title="`Coleção: ${itemDetails.name}`"
       :endpoint="`/photos/by-owner/collection/${id}`"
-      :form-component="CollectionForm"
       @select="selectItem"
       :item-thumbnail="'id'"
       :loading="loading"
       v-bind="getEmptyData(itemDetails.status)"
     >
+      <template #actions="{getItems}">
+        <component :is="CollectionForm" @success="getItems()" />
+      </template>
       <template #item-top>
         <v-btn 
           :icon="statusOptions[itemDetails.status].icon" 

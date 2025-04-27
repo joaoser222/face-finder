@@ -23,6 +23,12 @@
           ></v-img>
         </v-card>
       </template>
+      <template #actions="{getItems}">
+        <div class="d-flex flex-row align-end justify-center">
+          <v-btn text="Baixar resultados" color="primary" class="mt-4 mr-2" @click="downloadResults"></v-btn>
+          <component :is="SearchForm" @success="getItems()" />
+        </div>
+      </template>
       <template #item-top>
         <v-btn 
           :icon="statusOptions[itemDetails.status].icon" 

@@ -9,7 +9,7 @@
     </template>
     <template #actions>
       <slot name="details-top"></slot>
-      <component :is="formComponent" @success="getItems()" />
+      <slot name="actions" :getItems="getItems"></slot>
     </template>
     <template #default>
       <search-bar @search="handleSearch" v-if="search || items.data.length" @clear="search=''"></search-bar>
@@ -110,10 +110,6 @@ export default {
     emptyIcon: {
       type: String,
       default: 'PhotoFilled'
-    },
-    formComponent: {
-      type: Object,
-      required: true
     },
     loading: {
       type: Boolean,

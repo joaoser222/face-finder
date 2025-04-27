@@ -11,6 +11,9 @@
     :empty-banner-url="'assets/face_search.svg'"
     @select="selectItem"
   >
+    <template #actions="{getItems}">
+      <component :is="SearchForm" @success="getItems()" />
+    </template>
     <template #item-top="{ item }">
       <v-btn 
         :icon="statusOptions[item.status].icon" 
@@ -41,7 +44,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import ImageGridPage from '../reusables/ImageGridPage.vue';
-import Form from './Form.vue';
+import SearchForm from './Form.vue';
 import statusOptions from './statusOptions';
 
 const router = useRouter();
