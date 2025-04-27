@@ -165,34 +165,43 @@ class SearchController(ViewController):
     
     async def download_result(self, search_id: int):
         try:
-            # Cria o ZIP completo na memória
-            zip_buffer = io.BytesIO()
+            # Cria um gerador de chunks para streaming
+            async def generate_zip_chunks():
+                zip_buffer = io.BytesIO()
+                raw_query = f"""
+                    SELECT photos.file_path, photos.original_name FROM photos
+                    WHERE
+                        photos.user_id = {self.current_user.id} AND
+                        EXISTS (
+                            SELECT 1
+                            FROM search_faces
+                            WHERE 
+                                search_faces.photo_id = photos.id AND 
+                                search_faces.search_id = {search_id}
+                        )
+                """
+                files_to_zip = await execute_raw_sql(raw_query)
 
-            raw_query = f"""
-                SELECT photos.file_path,photos.original_name FROM photos
-                WHERE
-                    photos.user_id = {self.current_user.id} AND
-                    EXISTS (
-                        SELECT 1
-                        FROM search_faces
-                        WHERE 
-                            search_faces.photo_id = photos.id AND 
-                            search_faces.search_id = {search_id}
-                    )
-            """
+                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED, False) as zip_file:
+                    for file_to_zip in files_to_zip:
+                        zip_file.write(file_to_zip['file_path'], arcname=file_to_zip['original_name'])
 
-            files_to_zip = await execute_raw_sql(raw_query)
+                zip_buffer.seek(0)
+                
+                # Lê o ZIP em chunks de 1MB
+                while chunk := zip_buffer.read(1024 * 1024):
+                    yield chunk
+                    zip_buffer.flush()
 
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED, False) as zip_file:
-                for file_to_zip in files_to_zip:
-                    zip_file.write(file_to_zip['file_path'], arcname=file_to_zip['original_name'])
+                zip_buffer.close()
 
-            zip_buffer.seek(0)
-
+            # Configura o StreamingResponse com o gerador
             return StreamingResponse(
-                iter([zip_buffer.getvalue()]),  # Apenas envia o conteúdo inteiro
+                generate_zip_chunks(),
                 media_type="application/zip",
-                headers={"Content-Disposition": "attachment; filename=progress_files.zip"}
+                headers={
+                    "Content-Disposition": "attachment; filename=download.zip"
+                }
             )
 
         except Exception as e:
