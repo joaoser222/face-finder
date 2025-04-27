@@ -6,11 +6,12 @@ from app.models.job import Job
 from app.models.collection import Collection,CollectionStatus
 from tortoise import transactions
 from fastapi import UploadFile, HTTPException, Form, Query, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse,StreamingResponse
 import json,os
-from app.utils import logger_info,logger_error
+from app.utils import logger_info,logger_error,execute_raw_sql
 from app.services.recognition import Recognition
 from app.tasks import search_faces
+import zipfile,io
 
 class SearchController(ViewController):
     model = Search
@@ -22,6 +23,13 @@ class SearchController(ViewController):
         self.router.add_api_route(
             "/collections",
             self.get_collections,
+            methods=["GET"],
+            dependencies=[Depends(self.set_current_user)]
+        )
+
+        self.router.add_api_route(
+            "/download/{search_id}",
+            self.download_result,
             methods=["GET"],
             dependencies=[Depends(self.set_current_user)]
         )
@@ -154,5 +162,40 @@ class SearchController(ViewController):
         except Exception as e:
             logger_error(__name__,e)
             raise HTTPException(status_code=400, detail=str(e))
+    
+    async def download_result(self, search_id: int):
+        try:
+            # Cria o ZIP completo na memória
+            zip_buffer = io.BytesIO()
 
+            raw_query = f"""
+                SELECT photos.file_path,photos.original_name FROM photos
+                WHERE
+                    photos.user_id = {self.current_user.id} AND
+                    EXISTS (
+                        SELECT 1
+                        FROM search_faces
+                        WHERE 
+                            search_faces.photo_id = photos.id AND 
+                            search_faces.search_id = {search_id}
+                    )
+            """
+
+            files_to_zip = await execute_raw_sql(raw_query)
+
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED, False) as zip_file:
+                for file_to_zip in files_to_zip:
+                    zip_file.write(file_to_zip['file_path'], arcname=file_to_zip['original_name'])
+
+            zip_buffer.seek(0)
+
+            return StreamingResponse(
+                iter([zip_buffer.getvalue()]),  # Apenas envia o conteúdo inteiro
+                media_type="application/zip",
+                headers={"Content-Disposition": "attachment; filename=progress_files.zip"}
+            )
+
+        except Exception as e:
+            logger_error(__name__, e)
+            raise HTTPException(status_code=400, detail=str(e))
 

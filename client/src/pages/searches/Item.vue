@@ -74,6 +74,7 @@ export default {
     const loading = ref(true);
     const itemDetails = ref({});
     const catchRequestErrors = inject('catchRequestErrors');
+    const loadingDialog = inject('loadingDialog');
     
     const selectItem = (item) => {
       selectedPhoto.value = {...item};
@@ -89,6 +90,35 @@ export default {
         loading.value = false;
       }
     }
+
+    const downloadResults = async () => {
+      try {
+        loadingDialog.show('Baixando resultados');
+
+        const response = await api({
+          url: `searches/download/${props.id}`,
+          method: 'GET',
+          responseType: 'blob', // Mantém blob
+        });
+
+
+        const url = window.URL.createObjectURL(response);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${itemDetails.value.name || 'download'}.zip`); // Segurança extra: nome de fallback
+        document.body.appendChild(link);
+        link.click();
+
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        catchRequestErrors(error);
+      } finally {
+        loadingDialog.hide();
+      }
+    };
+
 
     const getEmptyData = (status=0)=>{
       let statusData = statusOptions[status];
@@ -108,6 +138,7 @@ export default {
       itemDetails,
       statusOptions,
       getEmptyData,
+      downloadResults,
       selectedPhoto,
       SearchForm,
       selectItem
