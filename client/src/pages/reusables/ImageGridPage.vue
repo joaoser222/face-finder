@@ -9,11 +9,11 @@
     </template>
     <template #actions>
       <slot name="details-top"></slot>
-      <slot name="actions" :getItems="getItems"></slot>
+      <slot name="actions" :getItems="getItems" :hasItems="hasItems"></slot>
     </template>
     <template #default>
-      <search-bar @search="handleSearch" v-if="search || items.data.length" @clear="search=''"></search-bar>
-      <div v-if="items.data.length">
+      <search-bar @search="handleSearch" v-if="search || hasItems" @clear="search=''"></search-bar>
+      <div v-if="hasItems">
         <item-grid :items="items.data">
           <template #default="{ item }">
             <v-img
@@ -49,7 +49,7 @@
           v-model="items.page"
           :length="items.total_pages"
           :total-visible="5"
-          v-if="items.data.length && items.total_pages > 1"
+          v-if="hasItems && items.total_pages > 1"
           class="my-4"
           @update:modelValue="getItems"
         ></v-pagination>
@@ -79,7 +79,7 @@
 </template>
 
 <script>
-import { ref, reactive,inject, onMounted } from 'vue';
+import { ref, reactive,inject, onMounted, computed } from 'vue';
 import  api  from '@/plugins/axios';
 import ItemGrid from '@/components/ItemGrid.vue';
 import SearchBar from './SearchBar.vue';
@@ -143,6 +143,8 @@ export default {
       }
     }
 
+    const hasItems = computed(() =>  items.data.length > 0);
+
     const getItems = async (page = 1) => {
       try {
         const resp = await api.get(`${props.endpoint}`, { params: { page, search: search.value } })
@@ -180,6 +182,7 @@ export default {
     return {
       search,
       items,
+      hasItems,
       getItems,
       selectItem,
       deleteItem,

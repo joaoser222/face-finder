@@ -23,10 +23,10 @@
           ></v-img>
         </v-card>
       </template>
-      <template #actions="{getItems}">
+      <template #actions="{getItems,hasItems}">
         <div class="d-flex flex-row align-end justify-center">
-          <v-btn text="Baixar resultados" color="primary" class="mt-4 mr-2" @click="downloadResults"></v-btn>
-          <component :is="SearchForm" @success="getItems()" />
+          <v-btn text="Baixar resultados" color="primary" class="mt-4 mr-2" @click="downloadResults" v-if="hasItems"></v-btn>
+          <component :is="SearchForm" @success="getItems()"></component>
         </div>
       </template>
       <template #item-top>
