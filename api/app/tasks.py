@@ -151,7 +151,7 @@ def collection_uncompression(self, job_id):
 
                     # Verifica se a foto já existe na coleção adiciona a versão anterior na lista de remoção
                     if has_photo:
-                        photos_to_remove.push(has_photo)
+                        photos_to_remove.append(has_photo)
 
                     # Processa cada foto
                     photo = await Photo.create_file(collection, item.name, item.stat().st_size)
