@@ -125,6 +125,13 @@ def collection_uncompression(self, job_id):
                 if not collection:
                     raise Exception("Coleção não encontrada")
 
+                all_photos = await Photo.filter(owner_id=collection.id,owner_type='collection').values('id','file_path','original_name')
+                photo_references = {
+                    photo['original_name']: (photo['id'],photo['file_path']) for photo in all_photos
+                }
+
+                photos_to_remove = []
+
                 os.makedirs(temp_dir, exist_ok=True)
                 added_photos_counter = 0
 
@@ -140,6 +147,12 @@ def collection_uncompression(self, job_id):
                         os.remove(item.path)
                         continue
                     
+                    has_photo = photo_references.get(item.name)
+
+                    # Verifica se a foto já existe na coleção adiciona a versão anterior na lista de remoção
+                    if has_photo:
+                        photos_to_remove.push(has_photo)
+
                     # Processa cada foto
                     photo = await Photo.create_file(collection, item.name, item.stat().st_size)
                     if not collection.thumbnail_photo:
@@ -147,6 +160,18 @@ def collection_uncompression(self, job_id):
                     
                     shutil.move(item.path, photo.file_path)
                     added_photos_counter += 1
+                
+                # Caso existam arquivos para remoção executa a remoção
+                if(photos_to_remove):
+                    chunks = chunk_array(photos_to_remove, 100)
+                    for chunk in chunks:
+                        photo_ids = []
+                        
+                        for photo_params in chunk:
+                            photo_ids.push(photo_params[0])
+                            os.remove(photo_params[1])
+
+                        await Photo.filter(id__in=photo_ids).delete()
 
                 # Atualiza coleção
                 collection.status = CollectionStatus.INDEXING
