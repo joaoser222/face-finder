@@ -80,10 +80,13 @@ export default {
     open() {
       this.dialogStatus = true;
     },
+    updateForm(form) {
+      this.form = form;
+    },
     close() {
       this.dialogStatus = false;
-      this.form = {};
-      this.$emit('close');
+      this.updateForm({});
+      this.$emit('close',this.updateForm);
     },
     getFormData(){
       if(this.multipartForm){
