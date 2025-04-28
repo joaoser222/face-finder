@@ -22,7 +22,7 @@ Requisitos mínimos:
 - **Vue 3**
 - **Vuetify**
 
-## Instruções
+## **Instruções**
 
 Para utilizar o projeto é bem simples. Primeiramente clone este respositório em sua maquina. Em seguida caso ainda não tenha o docker é necessário instalar. E por fim, já dentro da pasta do respositório execute (com privilégios de administrador):
 
@@ -32,7 +32,7 @@ Assim que acabar de gerar as os containers basta acessar a aplicação em http:/
 
 ![image.png](README/image.png)
 
-# Coleções
+### Coleções
 
 Após preencher os dados de usuário e realizar cadastro basta enviar a primeira coleção para poder realizar uma pesquisa de faces. A coleção deve ser no formato ZIP e deve conter apenas imagens em formato PNG ou JPG. Outros arquivos serão removidos durante o processo de descompactação. Caso a coleção não possua imagens contendo faces ela não será listada para pesquisa
 
@@ -42,6 +42,6 @@ Após enviar a coleção ela será processada de forma assincrona e a cada atual
 
 ![sse.png](README/sse.png)
 
-# Pesquisa de Faces
+### Pesquisa de Faces
 
 Tendo cadastrado sua primeira coleção já é possível realizar uma pesquisa de faces. Como parametros você deve enviar uma imagem que contenha uma única face de referência. Se a imagem não possuir uma face ou se possuir mais de uma face um erro será retornado.
