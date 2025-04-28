@@ -29,7 +29,8 @@ api.interceptors.request.use(
 // Interceptor para respostas
 api.interceptors.response.use(
   (response) => {
-    return response.data
+    
+    return response.config.responseType=='blob'? response : response.data;
   },
   (error) => {
     if (error.response) {
