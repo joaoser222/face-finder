@@ -151,10 +151,18 @@ def collection_uncompression(self, job_id):
 
                     # Verifica se a foto já existe na coleção adiciona a versão anterior na lista de remoção
                     if has_photo:
+
+                        # Caso a foto para remoção seja a thumbnail da coleção, remove a referência
+                        if(collection.thumbnail_photo_id==has_photo[0]):
+                            collection.thumbnail_photo_id = None
+                            collection.save()
+                        
                         photos_to_remove.append(has_photo)
 
                     # Processa cada foto
                     photo = await Photo.create_file(collection, item.name, item.stat().st_size)
+
+                    # Atualiza a coleção com a foto adicionada caso ainda não tenha uma foto de destaque
                     if not collection.thumbnail_photo:
                         collection.thumbnail_photo = photo
                     
