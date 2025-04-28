@@ -81,6 +81,7 @@ export default {
     const itemDetails = ref({});
     const catchRequestErrors = inject('catchRequestErrors');
     const loadingDialog = inject('loadingDialog');
+    const formatBytes = inject('formatBytes');
     
     const selectItem = (item) => {
       selectedPhoto.value = {...item};
@@ -99,32 +100,38 @@ export default {
 
     const downloadResults = async () => {
       try {
-        loadingDialog.show('Baixando resultados');
-
-        const response = await api({
-          url: `searches/download/${props.id}`,
-          method: 'GET',
-          responseType: 'blob', // Mantém blob
+        const response = await api.get(`/searches/download/${props.id}`, {
+          responseType: 'blob', 
+          onDownloadProgress: (progressEvent) => {
+            let bytesLoaded = formatBytes(progressEvent.loaded);
+            loadingDialog.show(`Baixando resultados ${bytesLoaded}`);
+          },
         });
 
+        // Extrai o nome do arquivo do header (ou usa um fallback)
+        const contentDisposition = response.headers['content-disposition'];
+        const fileName = contentDisposition?.match(/filename=["']?(.+?)["']?$/i)?.[1] || 'results.zip';
 
-        const url = window.URL.createObjectURL(response);
-
+        // Cria um link temporário para download
+        const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `${itemDetails.value.name || 'download'}.zip`); // Segurança extra: nome de fallback
+        link.download = fileName;
         document.body.appendChild(link);
         link.click();
 
-        link.remove();
-        window.URL.revokeObjectURL(url);
+        // Limpeza
+        setTimeout(() => {
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        }, 100);
+
       } catch (error) {
-        catchRequestErrors(error);
-      } finally {
+        console.error('Erro no download:', error);
+      }finally {
         loadingDialog.hide();
       }
     };
-
 
     const getEmptyData = (status=0)=>{
       let statusData = statusOptions[status];
