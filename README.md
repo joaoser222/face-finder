@@ -1,5 +1,3 @@
-# README
-
 # **Face Finder**
 
 **Face Finder** é um assistente de reconhecimento facial que permite indexar e pesquisar faces em coleções de imagens. Utilizando a biblioteca **InsightFace** (Python) ele extrai, indexa as faces e realiza buscas com base em uma imagem de referência. Tudo isso com suporte a autenticação de usuários e atualizações em tempo real via **SSE (Server-Sent Events)**.
@@ -23,6 +21,8 @@ Requisitos mínimos:
 
 - **Vue 3**
 - **Vuetify**
+
+## Instruções
 
 Para utilizar o projeto é bem simples. Primeiramente clone este respositório em sua maquina. Em seguida caso ainda não tenha o docker é necessário instalar. E por fim, já dentro da pasta do respositório execute (com privilégios de administrador):
 
