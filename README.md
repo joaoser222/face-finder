@@ -48,5 +48,5 @@ Tendo cadastrado sua primeira coleção já é possível realizar uma pesquisa d
 
 # Licença
 
-Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Este projeto está licenciado sob a Licença GPLv3 - veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
