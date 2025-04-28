@@ -186,7 +186,14 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    async handleLogout() {
+      const authStore = useAuthStore();
+      authStore.clearAuth();
     }
-  }
+  },
+  mounted() {
+    this.handleLogout();
+  },
 }
 </script>

@@ -13,6 +13,11 @@ const routes = [
     component: () => import('@/pages/Login.vue'),
   },
   {
+    path: '/logout',
+    component: () => import('@/pages/Login.vue'),
+    redirect: '/login'
+  },
+  {
     path: '/',
     component: () => import('@/pages/Layout.vue'),
     redirect: '/collections',
@@ -41,6 +46,11 @@ const routes = [
       }
     ],
   },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'main-catch-error',
+    component: () => import('@/pages/Error.vue')
+  }
 ] 
 
 const router = createRouter({
