@@ -168,7 +168,7 @@ def collection_uncompression(self, job_id):
                         photo_ids = []
                         
                         for photo_params in chunk:
-                            photo_ids.push(photo_params[0])
+                            photo_ids.append(photo_params[0])
                             os.remove(photo_params[1])
 
                         await Photo.filter(id__in=photo_ids).delete()
