@@ -45,3 +45,8 @@ Após enviar a coleção ela será processada de forma assincrona e a cada atual
 ### Pesquisa de Faces
 
 Tendo cadastrado sua primeira coleção já é possível realizar uma pesquisa de faces. Como parametros você deve enviar uma imagem que contenha uma única face de referência. Se a imagem não possuir uma face ou se possuir mais de uma face um erro será retornado.
+
+# Licença
+
+Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
