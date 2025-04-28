@@ -60,6 +60,12 @@ class SearchController(ViewController):
                 await photo.delete()
                 await record.delete()
                 raise HTTPException(400, "A foto não contém faces!")
+            elif photo.face_count>1:
+                if os.path.exists(photo.file_path):
+                    os.remove(photo.file_path)
+                await photo.delete()
+                await record.delete()
+                raise HTTPException(400, "A foto contém mais de uma face!")
             else:
                 record.thumbnail_photo_id = photo.id
                 await record.save()
