@@ -1,5 +1,5 @@
 <template>
-  <dialog-form @save="save" :content="content" :multipart-form="true">
+  <dialog-form @save="save" :content="content" :multipart-form="true" @close="close">
     <template #title>
       {{actionName}}
     </template>
@@ -83,9 +83,15 @@ export default {
       tolerance_level: authStore.user.tolerance_level,
       collections: []
     });
+
     const itemId = computed(() => route.params.id);
     const actionName = computed(() => itemId.value ? 'Reexecutar' : 'Criar Pesquisa');
-    
+
+    const close = (updateForm)=>{
+      // Preserva o valor de tolerancia do usuário reset do form
+      updateForm({tolerance_level: authStore.user.tolerance_level});
+    }
+
     const save = async (data) => {
       
       if (itemId.value) {
@@ -146,6 +152,7 @@ export default {
       validations,
       masks,
       save,
+      close,
       create,
       executeUpdate
     };
