@@ -58,6 +58,10 @@ def generate_unique_filename(original_filename: str) -> str:
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     return f"{timestamp}_{unique_id}{ext.lower()}"
 
+def chunk_array(arr, chunk_size):
+    for i in range(0, len(arr), chunk_size):
+        yield arr[i:i + chunk_size]
+
 def logger_info(name, message):
     _logger = logging.getLogger(name)
     getattr(_logger, "info")(message)

@@ -8,7 +8,7 @@ from app.models.job import Job, JobStatus
 from app.models.face import Face
 from app.models.search import Search,SearchStatus
 from app.models.search_face import SearchFace
-from app.utils import logger_info, logger_error, execute_raw_sql
+from app.utils import logger_info, logger_error, execute_raw_sql,chunk_array
 import shutil
 import asyncio
 from app.config import init_db, close_db
@@ -311,8 +311,8 @@ def search_faces(self, job_id):
                 try:
                     # Processa as faces em paralelo (manualmente)
                     chunk_size = 50  # Processa em lotes para evitar sobrecarga
-                    for i in range(0, len(faces_to_search), chunk_size):
-                        chunk = faces_to_search[i:i + chunk_size]
+
+                    for chunk in chunk_array(faces_to_search, chunk_size):
                         tasks = [recognition.compare_faces(search, face) for face in chunk]
                         await asyncio.gather(*tasks)
 
