@@ -62,7 +62,7 @@ export default {
   components: {
     PageContainer
   },
-  inject: ['catchRequestErrors','loadingDialog'],
+  inject: ['catchRequestErrors','loadingDialog','dialog'],
   data() {
     return {
       form: {
@@ -84,6 +84,11 @@ export default {
         const data = await api.post(`/auth/update`,this.form);
         const authStore = useAuthStore();
         authStore.setUser(this.form);
+        this.dialog({
+          title: 'Sucesso',
+          message: 'Dados atualizados com sucesso!',
+          type: 'success'
+        });
       }catch (error) {
         this.catchRequestErrors(error);
       }finally{
